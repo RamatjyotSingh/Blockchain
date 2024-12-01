@@ -1,6 +1,8 @@
 import time
 import uuid
 import json
+from icecream import ic
+
 
 class Gossip:
 
@@ -44,15 +46,15 @@ class Gossip:
          
     
     def add_peer(self, peer_host, peer_port,peer_id):
-        print('-'*50)
-        print(f"Peers here: {self.peers}")
-        print('-'*50)
+        ic('-'*50)
+        ic(f"Peers here: {self.peers}")
+        ic('-'*50)
         if peer_id and self.new_peer(peer_id):
-            print('-'*50)
-            print(f"Adding peer {peer_host}:{peer_port} with id {peer_id}")
-            print('-'*50)
+            ic('-'*50)
+            ic(f"Adding peer {peer_host}:{peer_port} with id {peer_id}")
+            ic('-'*50)
             if len(self.peers) <= Gossip.MAX_PEERS:
-                print("Adding peer to peers")
+                ic("Adding peer to peers")
                 self.peers[peer_id] = {'host': peer_host, 'port': peer_port}
                 Gossip.SEEN_PEERS[peer_id] = time.time() 
        
@@ -78,82 +80,89 @@ class Gossip:
         peer_host,peer_port,peer_id = gossip['host'],gossip['port'],gossip['id']
 
         if self.new_peer(peer_id):
-            print('-'*50)
-            print(f"Replying to peer {peer_host}:{peer_port} with id {peer_id}")
-            print('-'*50)
+            ic('-'*50)
+            ic(f"Replying to peer {peer_host}:{peer_port} with id {peer_id}")
+            ic('-'*50)
             self.add_peer(peer_host,peer_port,peer_id)
             self.socket.sendto(json.dumps(self.create_res()).encode(), (peer_host, peer_port))
 
     def forward_gossip(self,gossip):
+
         peer_id = gossip['id']
         if self.new_peer(peer_id):
-            print('-'*50)
-            print(f"Forwarding gossip from {gossip['host']}:{gossip['port']} with id {peer_id}")
-            print('-'*50)
+            ic('-'*50)
+            ic(f"Forwarding gossip from {gossip['host']}:{gossip['port']} with id {peer_id}")
+            ic('-'*50)
             self.add_peer(gossip['host'],gossip['port'],peer_id)
             for id, peer in self.peers.items():
                 self.socket.sendto(json.dumps(gossip).encode(), (peer['host'], peer['port']))   
     
-    def recv_gossip(self):
+    def recv_gossips(self):
         self.socket.settimeout(5)  # Set a timeout of 5 seconds
-        replies = []
+        gossip_replies = []
+        other_replies = []
         while True:
             try:
-                reply, addr = self.socket.recvfrom(1024)
-                replies.append((reply, addr))
+                data, addr = self.socket.recvfrom(1024)
+                reply = json.loads(data)
+
+                if reply['type'] == 'GOSSIP' or reply['type'] == 'GOSSIP_REPLY':
+
+                    gossip_replies.append((reply, addr))
+                else:
+                    other_replies.append((reply, addr))
+
             except TimeoutError:
-                print("Socket timed out, no more data received.")
+                ic("Socket timed out, no more data received.")
                 break
-        print('-'*50)
+        ic('-'*50)
        
-        return replies
+        return gossip_replies, other_replies
     
+    # retuns the known peer and other replies
     def execute(self):
 
-        
         self.first_gossip()
-        other_replies = []
-        replies = self.recv_gossip()
 
-        for reply, addr in replies:
+        gossip_replies,other_replies = self.recv_gossips()
 
-            gossip = json.loads(reply.decode())
-
-            notgossip = self.handle_gossip(gossip)
-
-            if  notgossip:
-                other_replies.append(notgossip)
-                return None
-      
+        for gossip, addr in gossip_replies:
 
 
-        print('-'*50)
-        print(f"Peers: {self.peers}")
-        print('-'*50)
-        print('-'*50)
-        print(f"Seen Peers: {Gossip.SEEN_PEERS}")
-        print('-'*50)
-        print('-'*50)
-        print(f"Other Replies: {other_replies}")
-        print('-'*50)
-        return other_replies
+            self.handle_gossip(gossip)
+
+            
+
+
+        ic('-'*50)
+        ic(f"Peers: {self.peers}")
+        ic('-'*50)
+        ic('-'*50)
+        ic(f"Seen Peers: {Gossip.SEEN_PEERS}")
+        ic('-'*50)
+        ic('-'*50)
+        # ic(f"Other Replies: {other_replies}")
+        # ic('-'*50)
+
+        return self.peers ,other_replies
             
        
             
       
     def handle_gossip(self,gossip):
+
         reply_type = gossip['type']
+
         if reply_type == 'GOSSIP' :
-            print('-'*50)
-            print("here")
+            ic('-'*50)
+            ic("here")
             self.reply_gossip(gossip)
             self.forward_gossip(gossip)
-            return None
 
         elif reply_type == 'GOSSIP_REPLY':
 
             self.add_peer(gossip['host'],gossip['port'],None)
-            return None
+
     def keep_alive(self):
       
         for id, peer in self.peers.items():
@@ -165,4 +174,3 @@ class Gossip:
         for id, timestamp in Gossip.SEEN_PEERS.items():
             if curr_time - timestamp > 60:
                 self.remove_peer(id)
-        
