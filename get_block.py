@@ -14,6 +14,7 @@ class GetBlock:
         self.blockchain = blockchain
         self.socket = socket
         self.peers = peers
+        self.block_replies = {}
 
     def create_req(self,height):
 
@@ -55,11 +56,10 @@ class GetBlock:
             self.socket.sendto(json.dumps(req).encode(), (host, port))
 
     def recv_res(self,max_msges=100):
-        self.socket.settimeout(5)
-        block_replies = {}
-        msg_count = 100
-        while True:
-            try:
+
+        self.block_replies 
+       
+        try:
                 data, addr = self.socket.recvfrom(1024)
                 ic(data,addr)
                 reply = json.loads(data)
@@ -67,26 +67,25 @@ class GetBlock:
                 if reply['type'] == 'GET_BLOCK_REPLY':
                     height = reply['height']
 
-                    block_replies[height] = (reply)
+                    self.block_replies[height] = (reply)
 
-                
-            except (TimeoutError, socket.timeout):
-                ic("Socket timed out, no more data received.")
-                break
+
             
             
-            except json.JSONDecodeError:
+        except json.JSONDecodeError:
                 print("Received invalid JSON data.")
-            except Exception as e:
+        except Exception as e:
                 print(f"An error occurred: {e}")
-                break
+            
 
 
-        return block_replies
+        return self.block_replies
 
-    def get_block(self,height,peer):
+    def get_block(self,height,peers):
 
-        self.send_req(peer,height)
+        curr_peer = peers[random.randint(0, len(peers) - 1)]
+        ic(curr_peer)
+        self.send_req(curr_peer,height)
         block_replies = self.recv_res()
         
         reply = block_replies[height]
@@ -102,7 +101,7 @@ class GetBlock:
                 hash=reply['hash'],
                 height=reply['height'],
                 messages=reply['messages'],
-                mined_by=reply['mined_by'],
+                minedBy=reply['minedBy'],
                 nonce=reply['nonce'],
                 timestamp=reply['timestamp']
 
@@ -116,7 +115,7 @@ class GetBlock:
 
         return block
     
-    def get_blocks_in_chunks(self, peer, chunk_size):
+    def get_blocks_in_chunks(self, peers, chunk_size):
 
         start_height = self.blockchain.get_curr_height() 
         ic(start_height)
@@ -127,7 +126,7 @@ class GetBlock:
             if height >= self.blockchain.total_height:
                 height=0
 
-            block = self.get_block(height, peer)
+            block = self.get_block(height, peers)
             
             if block:
                 ic(block)
@@ -146,9 +145,8 @@ class GetBlock:
         chain_filled = self.blockchain.is_chain_filled()
 
         while curr_height < chain_height or not chain_filled:
-            curr_peer = peers[random.randint(0, len(peers) - 1)]
-            ic(curr_peer)
-            self.get_blocks_in_chunks(curr_peer, self.CHUNK_SIZE)
+           
+            self.get_blocks_in_chunks(peers, self.CHUNK_SIZE)
             
             chain_filled = self.blockchain.is_chain_filled()
             if chain_filled:
