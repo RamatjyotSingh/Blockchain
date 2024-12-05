@@ -109,7 +109,7 @@ class Stats:
 
         #sort peers based on unique chains
         for hash_value, (count, height, peers) in occurance.items():
-            peer_list.append((peers[0], height, count))
+                peer_list.append((peers, height, count))
 
         # Sort by height first (descending) and then by count (descending)
         sorted_peers = sorted(peer_list, key=lambda x: (x[1], x[2]), reverse=True)
@@ -134,6 +134,7 @@ class Stats:
         ic('-'*50)
         ic("Priority peers:")
         for peer, height, count in priority_peers:
+
             ic(f"Peer: {peer}, Height: {height}, Count: {count}")
         ic('-'*50)
         return priority_peers 
