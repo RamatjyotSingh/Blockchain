@@ -67,7 +67,7 @@ class GetBlock:
                 if reply['type'] == 'GET_BLOCK_REPLY':
                     height = reply['height']
 
-                    self.block_replies[height] = (reply)
+                    self.block_replies[height] = reply
 
 
             
@@ -147,6 +147,7 @@ class GetBlock:
         while curr_height < chain_height or not chain_filled:
            
             self.get_blocks_in_chunks(peers, self.CHUNK_SIZE)
+            self.blockchain.increment_height_by_chunk(self.CHUNK_SIZE)
             
             chain_filled = self.blockchain.is_chain_filled()
             if chain_filled:

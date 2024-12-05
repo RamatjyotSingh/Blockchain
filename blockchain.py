@@ -6,7 +6,7 @@ class Blockchain:
 
         self.chain = []
         self.init_chain(total_height)
-        self.create_genesis_block()
+        # self.create_genesis_block()
         self.curr_height = 0
 
         self.total_height = total_height
@@ -107,3 +107,9 @@ class Blockchain:
         self.curr_height = 0
         print("Genesis block created:")
         print(genesis_block)
+
+    def is_valid(self):
+        for i in range(1, len(self.chain)):
+            if not self.verify_block(self.chain[i], i):
+                return False
+        return True
