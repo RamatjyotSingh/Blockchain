@@ -54,19 +54,20 @@ class GetBlock:
             req = self.create_req(height)
             self.socket.sendto(json.dumps(req).encode(), (host, port))
 
-    def recv_res(self):
+    def recv_res(self,max_msges=100):
         self.socket.settimeout(5)
         block_replies = {}
-
+        msg_count = 100
         while True:
             try:
                 data, addr = self.socket.recvfrom(1024)
+                ic(data,addr)
                 reply = json.loads(data)
 
                 if reply['type'] == 'GET_BLOCK_REPLY':
                     height = reply['height']
 
-                    block_replies[height] = (reply, addr)
+                    block_replies[height] = (reply)
 
                 
             except (TimeoutError, socket.timeout):
@@ -88,7 +89,8 @@ class GetBlock:
         self.send_req(peer,height)
         block_replies = self.recv_res()
         
-        reply = block_replies.get(height)
+        reply = block_replies[height]
+        ic(reply)
 
         assert reply['type'] == 'GET_BLOCK_REPLY'
         assert height == reply['height'], f"Expected block at height {height}, got block at height {reply['height']}."
@@ -117,17 +119,18 @@ class GetBlock:
     def get_blocks_in_chunks(self, peer, chunk_size):
 
         start_height = self.blockchain.get_curr_height() 
+        ic(start_height)
         end_height = start_height + chunk_size
 
         for height in range(start_height, end_height):
             
             if height >= self.blockchain.total_height:
-                break
+                height=0
 
             block = self.get_block(height, peer)
-
+            
             if block:
-
+                ic(block)
                 continue  
 
             else:
@@ -144,6 +147,7 @@ class GetBlock:
 
         while curr_height < chain_height or not chain_filled:
             curr_peer = peers[random.randint(0, len(peers) - 1)]
+            ic(curr_peer)
             self.get_blocks_in_chunks(curr_peer, self.CHUNK_SIZE)
             
             chain_filled = self.blockchain.is_chain_filled()

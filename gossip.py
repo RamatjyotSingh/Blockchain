@@ -12,7 +12,7 @@ class Gossip:
 
         'host': '130.179.28.37',
         'port': 8999,
-        'last_seen': time.time()
+        'last_seen': int(time.time())
 
         }
 
@@ -121,7 +121,7 @@ class Gossip:
 
                 'host': peer_host,
                 'port': peer_port,
-                'last_seen': time.time()
+                'last_seen': int(time.time())
 
             }
             assert len(self.known_peers) < Gossip.MAX_PEERS

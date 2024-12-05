@@ -119,25 +119,35 @@ class Stats:
 
         
     
-    def get_priority_peers(self, stats_replies):
-
+    def get_priority_peer_group(self, stats_replies):
         stats = self.filter_stats(stats_replies)
         ordered_peers = self.find_priority_peers(stats)
+    
+        priority_peer_groups = {}
+        for peer_entries, height, count in ordered_peers:
+            peer_list = []
+            for peer_host, peer_port in peer_entries:
+                peer_list.append({'host': peer_host, 'port': peer_port})
+            ic(f"Peers: {peer_list}")
+    
+            if isinstance(height, int):
+                priority_peer_groups[height] = peer_list
+            else:
+                ic(f"Invalid height type: {height} (Type: {type(height)})")
+                # Handle the invalid height appropriately
+    
+        return priority_peer_groups
 
-        return ordered_peers
 
     # returns priority peers and other replies
     def execute(self):
         self.send_req()
         stats_replies = self.recv_res()
-        priority_peers = self.get_priority_peers(stats_replies)
+        priority_peer_groups = self.get_priority_peer_group(stats_replies)
         ic('-'*50)
         ic("Priority peers:")
-        for peer, height, count in priority_peers:
-
-            ic(f"Peer: {peer}, Height: {height}, Count: {count}")
-        ic('-'*50)
-        return priority_peers 
+       
+        return priority_peer_groups
 
 
     

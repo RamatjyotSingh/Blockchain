@@ -3,15 +3,16 @@ import hashlib
 import time
 import multiprocessing
 from multiprocessing import Process, Queue, Event
+from icecream import ic
 
 DIFFICULTY = 8  # Adjusted for testing
 
-def worker(name, messages, height, previous_hash, timestamp, difficulty, step, start_nonce, result_queue, stop_event):
+def worker(minedBy, messages, height, previous_hash, timestamp, difficulty, step, start_nonce, result_queue, stop_event):
     """
     Worker function to find a valid nonce.
     
     Parameters:
-        name (str): Name associated with the block.
+        minedBy (str): minedBy associated with the block.
         messages (list): List of messages in the block.
         height (int): Height of the block in the blockchain.
         previous_hash (str): Hash of the previous block.
@@ -25,7 +26,7 @@ def worker(name, messages, height, previous_hash, timestamp, difficulty, step, s
     nonce = start_nonce
     while not stop_event.is_set():
         # Compute hash for the current nonce
-        hash_result = compute_hash(name, messages, height, previous_hash, timestamp, nonce)
+        hash_result = compute_hash(minedBy, messages, height, previous_hash, timestamp, nonce)
         
         # Check if the hash satisfies the difficulty requirement
         if hash_result.endswith('0' * difficulty):
@@ -38,34 +39,35 @@ def worker(name, messages, height, previous_hash, timestamp, difficulty, step, s
         # Increment nonce by the number of workers to avoid overlap
         nonce += step
 
-def compute_hash(name, messages, height, previous_hash, timestamp, nonce):
+def compute_hash(minedBy, messages, height, previous_hash, timestamp, nonce):
     """
     Computes the SHA-256 hash of the block's contents.
     
     Parameters:
-        name (str): Name associated with the block.
+        minedBy (str): minedBy associated with the block.
         messages (list): List of messages in the block.
         height (int): Height of the block in the blockchain.
         previous_hash (str): Hash of the previous block.
         timestamp (int): Timestamp of the block creation.
-        nonce (int): Nonce value for Proof-of-Work.
+        nonce (str): Nonce value for Proof-of-Work.
     
     Returns:
         str: The hexadecimal hash of the block.
     """
     hash_base = hashlib.sha256()
 
-    if previous_hash:
+    if previous_hash is not None:
         hash_base.update(previous_hash.encode('utf-8'))
 
-    hash_base.update(name.encode('utf-8'))
+    hash_base.update(minedBy.encode('utf-8'))
 
     for message in messages:
         hash_base.update(message.encode('utf-8'))
 
     # Convert timestamp and nonce to bytes and update the hash
     hash_base.update(timestamp.to_bytes(8, 'big'))
-    hash_base.update(nonce.to_bytes(8, 'big'))
+  
+    hash_base.update(int(nonce).to_bytes(8, 'big'))
 
     return hash_base.hexdigest()
 
@@ -74,14 +76,15 @@ class Block:
     Represents a single block in the blockchain.
     """
 
-    def __init__(self, name, messages, height, previous_hash,block_hash=None,nonce=None,timestamp=None):
-        self.name = name
+    def __init__(self, minedBy, messages, height, previous_hash,hash=None,nonce=None,timestamp=None):
+        self.minedBy = minedBy
         self.messages = messages
         self.height = height
+    
         self.previous_hash = previous_hash
         
-        if block_hash:
-            self.hash = block_hash
+        if hash:
+            self.hash = hash
             self.nonce = nonce
             self.timestamp = timestamp
         else:
@@ -105,7 +108,7 @@ class Block:
         Returns:
             str: The hexadecimal hash of the block.
         """
-        return compute_hash(self.name, self.messages, self.height, self.previous_hash, self.timestamp, nonce)
+        return compute_hash(self.minedBy, self.messages, self.height, self.previous_hash, self.timestamp, nonce)
 
     def verify_hash(self):
         """
@@ -114,7 +117,7 @@ class Block:
         Returns:
             bool: True if the recomputed hash matches the stored hash and satisfies difficulty, else False.
         """
-        return self.compute_hash(self.nonce) == self.hash and self.hash.endswith('0' * DIFFICULTY)
+        return self.compute_hash(self.nonce) == self.hash and self.hash[-DIFFICULTY] == '0' * DIFFICULTY, ic(self.compute_hash(self.nonce))
 
     def find_valid_hash(self):
         """
@@ -133,7 +136,7 @@ class Block:
         # Start worker processes
         for i in range(num_workers):
             p = Process(target=worker, args=(
-                self.name,
+                self.minedBy,
                 self.messages,
                 self.height,
                 self.previous_hash,
@@ -184,9 +187,9 @@ class Block:
         Returns:
             bool: True if all verifications pass.
         """
-        assert self.verify_hash(), "Block hash verification failed. " + self.hash
+        assert self.verify_hash(), "Block hash verification failed. " + repr(self)
         assert self.height >= 0, "Height must be non-negative."
-        assert self.name != '', "Name cannot be empty."
+        assert self.minedBy != '', "minedBy cannot be empty."
         assert self.previous_hash != '' or self.height == 0, "Previous hash cannot be empty unless height is 0."
         return True
 
@@ -219,7 +222,7 @@ class Block:
         return True
 
     def __repr__(self):
-        return f"Block(Name: {self.name}, Messages: {self.messages}, Height: {self.height}, Previous Hash: {self.previous_hash}, Hash: {self.hash}, Nonce: {self.nonce}, Timestamp: {self.timestamp})"
+        return f"Block(minedBy: {self.minedBy}, Messages: {self.messages}, Height: {self.height}, Previous Hash: {self.previous_hash}, Hash: {self.hash}, Nonce: {self.nonce}, Timestamp: {self.timestamp})"
 
    
 # Example usage
@@ -230,7 +233,7 @@ if __name__ == "__main__":
             print(f"Creating block {i}...")
             try:
                 block = Block(
-                    name="Ramatjyot Singh",
+                    minedBy="Ramatjyot Singh",
                     messages=["Hello, Bob!"],
                     height=2189 + i,
                     previous_hash=previous_hash

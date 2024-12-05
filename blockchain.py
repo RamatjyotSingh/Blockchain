@@ -5,8 +5,10 @@ class Blockchain:
     def __init__(self,total_height):
 
         self.chain = []
-        self.curr_height = 0
         self.init_chain(total_height)
+        self.create_genesis_block()
+        self.curr_height = 0
+
         self.total_height = total_height
 
     def add_block(self, block, height):
@@ -70,7 +72,9 @@ class Blockchain:
         if height == 0:
             prev_hash = None
         else:
+            
             prev_hash = self.chain[height-1].hash
+
 
         block = Block(mined_by,messages,height,prev_hash,hash,nonce,timestamp)
 
@@ -84,12 +88,20 @@ class Blockchain:
     def create_genesis_block(self):
 
         genesis_block = Block(
-            mined_by="Kungfu Panda",
-            messages=["KaChow!"],
-            height=0,
-            previous_hash=None,
-            
-        )
+               
+                hash='2483cc5c0d2fdbeeba3c942bde825270f345b2e9cd28f22d12ba347300000000',
+                height=0,
+                messages=['3010 rocks',
+                          'Warning:',
+                          'Procrastinators',
+                          'will be sent back',
+                          'in time to start',
+                          'early.'],
+                previous_hash=None,
+                minedBy='Prof!',
+                nonce='7965175207940',
+                timestamp=1699293749
+            )
 
         self.chain.append(genesis_block)
         self.curr_height = 0

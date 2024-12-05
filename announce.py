@@ -7,7 +7,7 @@ class Announce:
         return {
             'type': 'ANNOUNCE',
             "height":block.height,
-            "minedBy": block.name,
+            "minedBy": block.minedBy,
             "nonce": block.nonce,
             "messages": block.messages,
             "hash": block.hash,
@@ -27,15 +27,15 @@ class Announce:
         ip = socket.gethostbyname(hostname)
         port = 8784
         sock.bind((ip, port))
-        gossip = Gossip(socket=sock, port=port,host=ip, name="Ramatjyot Singh")
-        gossip.execute()
-        prev_hash = '9588d90863aff6af0bbd3e0cdf800a0edafd16fd0512e65d00c62a5000000000'
+        gossip = Gossip(sock, ip, port, "Ramatjyot Singh")
+        gossip.first_gossip()
+        prev_hash = '05370e4b187ccf0e5adc3447dc1887d2d13d658b26544fa80404b10100000000'
         if __name__ == "__main__":
             with open("blocks.txt", "w") as f:
                 for i in range(5):
                     print(f"Creating block {i}...")
                     try:
-                        block = Block("Ramatjyot Singh", ["Hello, Bob!"], 2211+i, "prev_hash")
+                        block = Block("Ramatjyot Singh", ["Hello, Bob!"], 2245+i, "prev_hash")
                         print(block, file=f)
                         prev_hash = block.hash
                         create_req(block)
