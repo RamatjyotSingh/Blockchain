@@ -5,103 +5,218 @@ from icecream import ic
 
 
 class Gossip:
+    
+    #could have made peer an object but json is fine too lazy to do that
+    WELL_KNOWN_PEER = {
+        
+        'host': '130.179.28.37',
+        'port': 8999,
+        'last_seen': None
+        
+        }
+    
 
-    SEEN_PEERS = {}
-    KNOWN_PEER = {'host': 'silicon.cs.umanitoba.ca', 'port': 8999}
-    MAX_PEERS = 3
+    MAX_PEERS = 4
+
+    CLEAN_UP_INTERVAL = 60
+    KEEP_ALIVE_INTERVAL = 30
+    
 
     def __init__(self, socket,host,port,name):
+
         self.socket = socket
         self.host = host
         self.port = port
         self.name = name
-        self.peers = {}
-        self.my_peer = None
+        self.id = None
 
+        self.last_keep_alive = time.time()
+        self.last_clean_up = time.time()
 
+        self.known_peers = [ self.WELL_KNOWN_PEER ]
+        self.seen_peers = []
  
     def create_req(self) :
-        self.my_peer = str(uuid.uuid4())
+
+        self.id = str(uuid.uuid4())
+
         return {
+
             "type": "GOSSIP",
             "host": self.host,
             "port": self.port,
-            "id": self.my_peer,
+            "id": self.id,
             "name": self.name
+
         }
     
 
     
     def create_res(self) :
+
         return {
+
             "type": "GOSSIP_REPLY",
             "host": self.host,
             "port": self.port,
             "name": self.name
+
         }
     
-    def new_peer(self,id):
+    def new_req(self, id):
 
-        return id not in Gossip.SEEN_PEERS and id != str(self.my_peer)
-         
+        exists = id in self.seen_peers
+
+        if not exists:
+            self.seen_peers.append(id)
+
+        return exists
     
-    def add_peer(self, peer_host, peer_port,peer_id):
+    def new_known_peer(self,peer_host,peer_port):
+            
+        return self.find_known_peer(peer_host,peer_port) is None
+    
+   
+ 
+
+    def find_known_peer(self,peer_host,peer_port):
+                
+            peer = next((peer for peer in self.known_peers if peer.get('host') == peer_host and peer.get('port') == peer_port), None)
+                    
+            return peer
+    
+
+    
+    
+
+    def track_peer(self, peer_host, peer_port,peer_id):
+        
         ic('-'*50)
-        ic(f"Peers here: {self.peers}")
+        ic(f"Peers here: {self.known_peers}")
         ic('-'*50)
-        if peer_id and self.new_peer(peer_id):
+
+
+        if peer_id and self.new_req(peer_id) and len(self.known_peers) < Gossip.MAX_PEERS:
+
             ic('-'*50)
             ic(f"Adding peer {peer_host}:{peer_port} with id {peer_id}")
             ic('-'*50)
-            if len(self.peers) <= Gossip.MAX_PEERS:
-                ic("Adding peer to peers")
-                self.peers[peer_id] = {'host': peer_host, 'port': peer_port}
-                Gossip.SEEN_PEERS[peer_id] = time.time() 
-       
+
+            self.update_peer(peer_host,peer_port)
+
+            ic("Adding peer to peers")
+
+    def update_peer(self,peer_host,peer_port):
+
+      
+
+        if self.new_known_peer(peer_host,peer_port) :
+
+            peer = {
+
+                'host': peer_host,
+                'port': peer_port,
+                'last_seen': time.time()
+
+            }
+            assert len(self.known_peers) < Gossip.MAX_PEERS
+            self.known_peers.append(peer)
+            
+        elif not self.new_known_peer(peer_host,peer_port) :
+                
+            self.update_peer_time(peer_host,peer_port)
+
+
+    def update_peer_time(self,peer_host,peer_port):
+
+        peer = self.find_known_peer(peer_host,peer_port)
+
+        if peer:
+           
+            peer['last_seen'] = time.time()
+        
+    def remove_peer(self, peer):
+        
+        peer_host,peer_port = peer['host'],peer['port']
+
+        known_peer = self.find_known_peer(peer_host,peer_port)
+
         
 
-    def remove_peer(self, peer_id):
 
-        if id in self.peers:
-            del self.peers[peer_id]
-
-        if id in Gossip.SEEN_PEERS:
-            del Gossip.SEEN_PEERS[peer_id]
         
+        if known_peer:
+
+            self.known_peers.remove(known_peer)
+
+            ic('-'*50)
+            ic(f"Removing known peer {peer['host']}:{peer['port']} ")
+            ic('-'*50)
 
     
     def first_gossip(self):
 
-        self.socket.sendto(json.dumps(self.create_req()).encode(), (Gossip.KNOWN_PEER['host'], Gossip.KNOWN_PEER['port']))
+        self.socket.sendto(json.dumps(self.create_req()).encode(), (Gossip.WELL_KNOWN_PEER['host'], Gossip.WELL_KNOWN_PEER['port']))
     
 
     def reply_gossip(self,gossip):
 
-        peer_host,peer_port,peer_id = gossip['host'],gossip['port'],gossip['id']
+        try:
 
-        if self.new_peer(peer_id):
+            peer_host,peer_port,peer_id = gossip['host'],gossip['port'],gossip['id']
+
+        except KeyError:
+
+            ic("Invalid gossip received")
+            ic(gossip)
+
+            return
+        
+        if self.new_req(peer_id) :
+
             ic('-'*50)
             ic(f"Replying to peer {peer_host}:{peer_port} with id {peer_id}")
             ic('-'*50)
-            self.add_peer(peer_host,peer_port,peer_id)
             self.socket.sendto(json.dumps(self.create_res()).encode(), (peer_host, peer_port))
+
+            self.track_peer(peer_host,peer_port,peer_id)
 
     def forward_gossip(self,gossip):
 
-        peer_id = gossip['id']
-        if self.new_peer(peer_id):
-            ic('-'*50)
-            ic(f"Forwarding gossip from {gossip['host']}:{gossip['port']} with id {peer_id}")
-            ic('-'*50)
-            self.add_peer(gossip['host'],gossip['port'],peer_id)
-            for id, peer in self.peers.items():
-                self.socket.sendto(json.dumps(gossip).encode(), (peer['host'], peer['port']))   
+        try:
+
+            gossip_host,gossip_port,gossip_id = gossip['host'],gossip['port'],gossip['id']
+
+        except KeyError:
+                
+                ic("Invalid gossip received")
+                ic(gossip)
     
+                return
+
+        if self.new_req(gossip_id):
+            ic('-'*50)
+            ic(f"Forwarding gossip from {gossip_host}:{gossip_port} with id {gossip_id}")
+            ic('-'*50)
+            self.track_peer(gossip_host,gossip_port,gossip_id)
+
+            for peer in self.known_peers:
+
+                host,port = peer['host'],peer['port']
+
+                if host != gossip_host and port != gossip_port:
+
+                    self.socket.sendto(json.dumps(gossip).encode(), (host, port))
+               
+                    
     def recv_gossips(self):
+
         self.socket.settimeout(5)  # Set a timeout of 5 seconds
+
         gossip_replies = []
-        other_replies = []
+
         while True:
+
             try:
                 data, addr = self.socket.recvfrom(1024)
                 reply = json.loads(data)
@@ -109,22 +224,41 @@ class Gossip:
                 if reply['type'] == 'GOSSIP' or reply['type'] == 'GOSSIP_REPLY':
 
                     gossip_replies.append((reply, addr))
-                else:
-                    other_replies.append((reply, addr))
-
+                
             except TimeoutError:
                 ic("Socket timed out, no more data received.")
                 break
+            except self.socket.timeout:
+                ic("Socket timed out, no more data received.")
+                break
+
         ic('-'*50)
        
-        return gossip_replies, other_replies
+        return gossip_replies
     
     # retuns the known peer and other replies
     def execute(self):
 
+        current_time = time.time()
+
+        # Check if it's time to send keep_alive messages
+        if current_time - self.last_keep_alive >= self.KEEP_ALIVE_INTERVAL:
+
+            ic("Executing keep_alive")
+            self.keep_alive()
+            self.last_keep_alive = current_time
+
+
+        # Check if it's time to perform clean_up
+        if current_time - self.last_clean_up >= self.CLEAN_UP_INTERVAL:
+
+            ic("Executing clean_up")
+            self.clean_up()
+            self.last_clean_up = current_time
+
         self.first_gossip()
 
-        gossip_replies,other_replies = self.recv_gossips()
+        gossip_replies = self.recv_gossips()
 
         for gossip, addr in gossip_replies:
 
@@ -135,17 +269,15 @@ class Gossip:
 
 
         ic('-'*50)
-        ic(f"Peers: {self.peers}")
+        ic(f"Peers: {self.known_peers}")
         ic('-'*50)
+        ic(f"Seen Peers: {self.seen_peers}")
         ic('-'*50)
-        ic(f"Seen Peers: {Gossip.SEEN_PEERS}")
-        ic('-'*50)
-        ic('-'*50)
+  
         # ic(f"Other Replies: {other_replies}")
         # ic('-'*50)
 
-        return self.peers ,other_replies
-            
+        return self.known_peers 
        
             
       
@@ -154,23 +286,40 @@ class Gossip:
         reply_type = gossip['type']
 
         if reply_type == 'GOSSIP' :
-            ic('-'*50)
-            ic("here")
+            
+
             self.reply_gossip(gossip)
             self.forward_gossip(gossip)
 
+        
+
         elif reply_type == 'GOSSIP_REPLY':
 
-            self.add_peer(gossip['host'],gossip['port'],None)
+            if  Gossip.MAX_PEERS > len(self.known_peers) and self.new_known_peer(gossip['host'],gossip['port']) :
+                ic('-'*50)
+                ic(len(self.known_peers))
+                ic('-'*50)
+                ic(Gossip.MAX_PEERS)
+
+                self.update_peer(gossip['host'],gossip['port'])
 
     def keep_alive(self):
       
-        for id, peer in self.peers.items():
+        
+        for  peer in self.known_peers:
             self.socket.sendto(json.dumps(self.create_req()).encode(), (peer['host'], peer['port']))
           
     def clean_up(self):
         
         curr_time = time.time()
-        for id, timestamp in Gossip.SEEN_PEERS.items():
-            if curr_time - timestamp > 60:
-                self.remove_peer(id)
+
+        if curr_time - self.last_clean_up > 60:
+
+            for id in self.seen_peers:
+                self.seen_peers.remove(id)
+        
+        peers_to_remove = [peer for peer in self.known_peers if curr_time - peer['last_seen'] > 60]
+        for peer in peers_to_remove:
+            self.remove_peer(peer)
+     
+    

@@ -3,10 +3,11 @@ from icecream import ic
 
 
 class Stats:
-
+    
     def __init__(self,socket,peers):
         self.socket = socket
         self.peers = peers
+        
     
     
       
@@ -26,7 +27,7 @@ class Stats:
     
     def send_req(self):
         req = self.create_req()
-        for peer in self.peers.values():  # Iterate over the values of the dictionary
+        for peer in self.peers:  # Iterate over the values of the dictionary
             host = peer['host']
             port = peer['port']
             ic('-'*50)
@@ -38,26 +39,42 @@ class Stats:
 
         self.socket.settimeout(10)
         stats_replies = []
-        other_replies = []
 
         while True:
-            ic("Waiting for stat replies...")
             try:
-                ic('here')
                 data, addr = self.socket.recvfrom(1024)
                 reply = json.loads(data)
+                reply_type = reply['type'] 
 
-                if reply['type'] == 'STATS_REPLY':
-                    ic(f"Received {reply['type']} from {addr[0]}:{addr[1]}")
+                if reply_type == 'STATS_REPLY':
+                    ic(f"Received {reply_type} from {addr[0]}:{addr[1]}")
 
                     stats_replies.append((reply,addr))
-                else:
-                    other_replies.append((reply,addr))
+                # elif reply['type'] == 'STATS':
 
+                    # self.send_res(addr,blockchain)
+                    
             except TimeoutError:
+                ic("Socket timed out, no more data received.")
                 break
+            except self.socket.timeout:
+                ic("Socket timed out, no more data received.")
+                break
+            
+        return stats_replies
+    
+    def send_res(self,reply_type,addr,blockchain):
 
-        return stats_replies, other_replies
+        if reply_type == 'STATS_REPLY' and self.blockchain.is_chain_filled():
+            height = len(self.blockchain.chain)
+            block = self.blockchain.chain[height-1]
+            res = self.create_res(block,height)
+            host = addr[0]
+            port = addr[1]
+            ic('-'*50)
+            ic(f"Sending STATS_REPLY to {host}:{port}")
+            ic('-'*50)
+            self.socket.sendto(json.dumps(res).encode(), (host, port))
     
     def filter_stats(self, stats_replies):
         stats = {}
@@ -82,9 +99,11 @@ class Stats:
     
         # Create a list to store peers with their height and count
         peer_list = []
+        ic(occurance)
+
+        #sort peers based on unique chains
         for hash_value, (count, height, peers) in occurance.items():
-            for peer in peers:
-                peer_list.append((peer, height, count))
+            peer_list.append((peers[0], height, count))
 
         # Sort by height first (descending) and then by count (descending)
         sorted_peers = sorted(peer_list, key=lambda x: (x[1], x[2]), reverse=True)
@@ -104,14 +123,14 @@ class Stats:
     # returns priority peers and other replies
     def execute(self):
         self.send_req()
-        stats_replies, other_replies = self.recv_res()
+        stats_replies = self.recv_res()
         priority_peers = self.get_priority_peers(stats_replies)
         ic('-'*50)
         ic("Priority peers:")
         for peer, height, count in priority_peers:
             ic(f"Peer: {peer}, Height: {height}, Count: {count}")
         ic('-'*50)
-        return priority_peers , other_replies
+        return priority_peers 
 
 
     
