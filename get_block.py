@@ -55,7 +55,7 @@ class GetBlock:
             req = self.create_req(height)
             self.socket.sendto(json.dumps(req).encode(), (host, port))
 
-    def recv_res(self,max_msges=100):
+    def recv_res(self):
 
         self.block_replies 
        
@@ -66,14 +66,33 @@ class GetBlock:
 
                 if reply['type'] == 'GET_BLOCK_REPLY':
                     height = reply['height']
+                    if height is not None:
+                        self.block_replies[height] = reply
 
-                    self.block_replies[height] = reply
+                        ic(f"Stored reply for height {height}.")
 
+                        block = self.blockchain.create_block(
 
-            
-            
+                        hash=reply['hash'],
+                        height=reply['height'],
+                        messages=reply['messages'],
+                        minedBy=reply['minedBy'],
+                        nonce=reply['nonce'],
+                        timestamp=reply['timestamp']
+
+                        )
+                    if block is None:
+                        return None
+                        # verify block should be in create_block()
+
+                    self.blockchain.add_block(block,height)
+                        # verify new link  should be in add_block()
+                                
+                        
+        except (TimeoutError, socket.timeout):   
+            print("Timed out waiting for replies.")     
         except json.JSONDecodeError:
-                print("Received invalid JSON data.")
+            print("Received invalid JSON data.")
         except Exception as e:
                 print(f"An error occurred: {e}")
             
@@ -88,7 +107,11 @@ class GetBlock:
         self.send_req(curr_peer,height)
         block_replies = self.recv_res()
         
-        reply = block_replies[height]
+        try:
+            reply = block_replies[height]
+        except KeyError:
+            print(f"Failed to retrieve block at height {height}.")
+            return 
         ic(reply)
 
         assert reply['type'] == 'GET_BLOCK_REPLY'
@@ -96,24 +119,8 @@ class GetBlock:
 
             
 
-        block = self.blockchain.create_block(
+       
 
-                hash=reply['hash'],
-                height=reply['height'],
-                messages=reply['messages'],
-                minedBy=reply['minedBy'],
-                nonce=reply['nonce'],
-                timestamp=reply['timestamp']
-
-            )
-        if block is None:
-            return None
-            # verify block should be in create_block()
-
-        self.blockchain.add_block(block,height)
-            # verify new link  should be in add_block()
-
-        return block
     
     def get_blocks_in_chunks(self, peers, chunk_size):
 
