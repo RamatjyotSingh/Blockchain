@@ -1,4 +1,5 @@
 import json
+import socket
 from icecream import ic
 
 
@@ -35,17 +36,18 @@ class Stats:
             ic('-'*50)
             self.socket.sendto(json.dumps(req).encode(), (host, port))
 
-    def recv_res(self):
+    def recv_res(self,max_msges=100):
 
-        self.socket.settimeout(10)
+        socket.timeout(5)
         stats_replies = []
-
-        while True:
+        msges = 0
+        while msges < max_msges:
             try:
                 data, addr = self.socket.recvfrom(1024)
+                msges += 1
                 reply = json.loads(data)
                 reply_type = reply['type'] 
-
+                ic(f"Received {reply_type} from {addr[0]}:{addr[1]}")
                 if reply_type == 'STATS_REPLY':
                     ic(f"Received {reply_type} from {addr[0]}:{addr[1]}")
 
@@ -53,14 +55,18 @@ class Stats:
                 # elif reply['type'] == 'STATS':
 
                     # self.send_res(addr,blockchain)
-                    
-            except TimeoutError:
+
+           
+            except (TimeoutError, socket.timeout):
                 ic("Socket timed out, no more data received.")
                 break
-            except self.socket.timeout:
-                ic("Socket timed out, no more data received.")
+
+            except Exception  :
+                ic('breaking out from loop')
                 break
-            
+
+           
+
         return stats_replies
     
     def send_res(self,reply_type,addr,blockchain):

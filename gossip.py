@@ -1,3 +1,4 @@
+import socket
 import time
 import uuid
 import json
@@ -11,7 +12,7 @@ class Gossip:
         
         'host': '130.179.28.37',
         'port': 8999,
-        'last_seen': None
+        'last_seen': time.time()
         
         }
     
@@ -34,7 +35,7 @@ class Gossip:
         self.last_clean_up = time.time()
 
         self.known_peers = [ self.WELL_KNOWN_PEER ]
-        self.seen_peers = []
+        self.seen_peers = set()
  
     def create_req(self) :
 
@@ -63,14 +64,18 @@ class Gossip:
 
         }
     
-    def new_req(self, id):
+    def new_req(self, peer_id):
 
-        exists = id in self.seen_peers
+        if peer_id in self.seen_peers:
 
-        if not exists:
-            self.seen_peers.append(id)
+            return False
+        
+        self.seen_peers.add(peer_id)
 
-        return exists
+        return True
+
+
+        
     
     def new_known_peer(self,peer_host,peer_port):
             
@@ -108,9 +113,9 @@ class Gossip:
 
     def update_peer(self,peer_host,peer_port):
 
-      
+        is_new = self.new_known_peer(peer_host,peer_port) 
 
-        if self.new_known_peer(peer_host,peer_port) :
+        if is_new:
 
             peer = {
 
@@ -122,7 +127,7 @@ class Gossip:
             assert len(self.known_peers) < Gossip.MAX_PEERS
             self.known_peers.append(peer)
             
-        elif not self.new_known_peer(peer_host,peer_port) :
+        else:
                 
             self.update_peer_time(peer_host,peer_port)
 
@@ -209,28 +214,37 @@ class Gossip:
                     self.socket.sendto(json.dumps(gossip).encode(), (host, port))
                
                     
-    def recv_gossips(self):
+    def recv_gossips(self,msg_count=100):
 
-        self.socket.settimeout(5)  # Set a timeout of 5 seconds
-
+        socket.timeout(5)  # Set a timeout of 5 seconds
+        msges = 0
         gossip_replies = []
 
-        while True:
+        while msges < msg_count:
 
             try:
                 data, addr = self.socket.recvfrom(1024)
+                msges+=1
                 reply = json.loads(data)
+                ic(f"Received {reply['type']} from {addr[0]}:{addr[1]}")
 
                 if reply['type'] == 'GOSSIP' or reply['type'] == 'GOSSIP_REPLY':
 
                     gossip_replies.append((reply, addr))
-                
-            except TimeoutError:
+            
+            except (TimeoutError, socket.timeout):
                 ic("Socket timed out, no more data received.")
                 break
-            except self.socket.timeout:
-                ic("Socket timed out, no more data received.")
+
+            except json.JSONDecodeError:
+                ic("Received malformed JSON data.")
+                continue  # Continue processing other incoming messages
+        
+            
+            except Exception  :
+                ic('breaking out from loop')
                 break
+            
 
         ic('-'*50)
        
@@ -295,7 +309,7 @@ class Gossip:
 
         elif reply_type == 'GOSSIP_REPLY':
 
-            if  Gossip.MAX_PEERS > len(self.known_peers) and self.new_known_peer(gossip['host'],gossip['port']) :
+            if  Gossip.MAX_PEERS > len(self.known_peers)  :
                 ic('-'*50)
                 ic(len(self.known_peers))
                 ic('-'*50)
@@ -315,8 +329,7 @@ class Gossip:
 
         if curr_time - self.last_clean_up > 60:
 
-            for id in self.seen_peers:
-                self.seen_peers.remove(id)
+            self.seen_peers.clear()
         
         peers_to_remove = [peer for peer in self.known_peers if curr_time - peer['last_seen'] > 60]
         for peer in peers_to_remove:

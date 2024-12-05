@@ -1,5 +1,8 @@
 import json
 import random
+import socket
+
+from icecream import ic
 
 
 class GetBlock:
@@ -66,8 +69,11 @@ class GetBlock:
                     block_replies[height] = (reply, addr)
 
                 
-            except self.socket.timeout:
+            except (TimeoutError, socket.timeout):
+                ic("Socket timed out, no more data received.")
                 break
+            
+            
             except json.JSONDecodeError:
                 print("Received invalid JSON data.")
             except Exception as e:

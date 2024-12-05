@@ -1,4 +1,5 @@
 import json
+import select
 from gossip import Gossip
 from stats import Stats
 from blockchain import Blockchain
@@ -22,15 +23,21 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
                 print(peers)
                 return peers
 
-        peers = test_gossip()
 
-        def test_stats():
+        def test_stats(peers):
                 stats = Stats(sock,peers)
                 priority_peers = stats.execute()
                 print(priority_peers)
 
 
 
-        test_stats()
+
+        while True:
+                readables, writables, _ = select.select([sock], [], [], 1)
+
+                if sock in readables:
+                        
+                        peers = test_gossip()
+                        test_stats(peers)
 
      
