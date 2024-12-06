@@ -47,14 +47,13 @@ class Stats:
                 msges += 1
                 reply = json.loads(data)
                 reply_type = reply['type'] 
-                ic(f"Received {reply_type} from {addr[0]}:{addr[1]}")
                 if reply_type == 'STATS_REPLY':
                     ic(f"Received {reply_type} from {addr[0]}:{addr[1]}")
 
                     stats_replies.append((reply,addr))
-                # elif reply['type'] == 'STATS':
-
-                    # self.send_res(addr,blockchain)
+                else :
+                    continue
+               
 
            
             except (TimeoutError, socket.timeout):
@@ -69,14 +68,14 @@ class Stats:
 
         return stats_replies
     
-    def send_res(self,reply_type,addr,blockchain):
+    def send_res(self,blockchain,peer):
 
-        if reply_type == 'STATS_REPLY' and self.blockchain.is_chain_filled():
-            height = len(self.blockchain.chain)
-            block = self.blockchain.chain[height-1]
-            res = self.create_res(block,height)
-            host = addr[0]
-            port = addr[1]
+        if  blockchain.is_chain_filled():
+            height = len(blockchain.chain)
+            block = blockchain.chain[height-1]
+            res = self.create_res(block)
+            host = peer['host']
+            port = peer['port']
             ic('-'*50)
             ic(f"Sending STATS_REPLY to {host}:{port}")
             ic('-'*50)
@@ -96,6 +95,8 @@ class Stats:
         for peer, stat in stats.items():
             try:
                 hash_value = stat['hash']
+                if hash_value == None:
+                    continue
                 height = stat['height']
                 if hash_value in occurance:
                     count, height, peers = occurance[hash_value]

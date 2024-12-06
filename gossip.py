@@ -227,11 +227,13 @@ class Gossip:
                 ic(data,addr)
                 msges+=1
                 reply = json.loads(data)
-                ic(f"Received {reply['type']} from {addr[0]}:{addr[1]}")
 
                 if reply['type'] == 'GOSSIP' or reply['type'] == 'GOSSIP_REPLY':
 
                     gossip_replies.append((reply, addr))
+                    
+                else:
+                    continue
 
             except (TimeoutError, socket.timeout):
                 ic("Socket timed out, no more data received.")
@@ -254,22 +256,7 @@ class Gossip:
     # retuns the known peer and other replies
     def execute(self):
 
-        current_time = time.time()
-
-        # Check if it's time to send keep_alive messages
-        if current_time - self.last_keep_alive >= self.KEEP_ALIVE_INTERVAL:
-
-            ic("Executing keep_alive")
-            self.keep_alive()
-            self.last_keep_alive = current_time
-
-
-        # Check if it's time to perform clean_up
-        if current_time - self.last_clean_up >= self.CLEAN_UP_INTERVAL:
-
-            ic("Executing clean_up")
-            self.clean_up()
-            self.last_clean_up = current_time
+        
 
         self.first_gossip()
 
@@ -317,6 +304,8 @@ class Gossip:
                 ic(Gossip.MAX_PEERS)
 
                 self.update_peer(gossip['host'],gossip['port'])
+        else:
+            return
 
     def keep_alive(self):
 
@@ -337,3 +326,20 @@ class Gossip:
             self.remove_peer(peer)
 
 
+    def background_task(self):
+        current_time = time.time()
+
+        # Check if it's time to send keep_alive messages
+        if current_time - self.last_keep_alive >= self.KEEP_ALIVE_INTERVAL:
+
+            ic("Executing keep_alive")
+            self.keep_alive()
+            self.last_keep_alive = current_time
+
+
+        # Check if it's time to perform clean_up
+        if current_time - self.last_clean_up >= self.CLEAN_UP_INTERVAL:
+
+            ic("Executing clean_up")
+            self.clean_up()
+            self.last_clean_up = current_time

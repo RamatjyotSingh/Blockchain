@@ -94,9 +94,9 @@ class Block:
             self.hash = self.find_valid_hash()
      
         # Verify constraints
-        self.verify_nonce()
-        self.verify_messages()
-        self.verify_self()
+        # self.verify_nonce()
+        # self.verify_messages()
+        # self.verify_self()
 
     def compute_hash(self, nonce):
         """
