@@ -94,19 +94,19 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             ic(f"Failed to bind socket: {e}")
             exit(1)
         gossip = Gossip(sock, ip, port, "Ramatjyot Singh")
-        gossip.first_gossip()
+        # gossip.first_gossip()
         while True:
             ic("Waiting for readable sockets...")
-            readables, writables, exceptions = select.select([sock], [], [sock], 1)
+            readables, writables, exceptions = select.select([sock], [sock], [sock], 1)
             ic(f"Readables: {readables}")
             ic(f"Writables: {writables}")
             ic(f"Exceptions: {exceptions}")
             
-            if not readables:
-                ic("No readable sockets. Retrying...")
-                continue  
+            # if not readables:
+            #     ic("No readable sockets. Retrying...")
+            #     continue  
             
-            for readable_sock in readables:
+            for readable_sock in writables:
                 if readable_sock == sock:
                     ic("Socket is readable.")
                     try:

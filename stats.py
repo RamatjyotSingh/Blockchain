@@ -38,7 +38,7 @@ class Stats:
 
     def recv_res(self,max_msges=100):
 
-        socket.timeout(5)
+        self.socket.settimeout(5)  # Set a timeout of 5 seconds
         stats_replies = []
         msges = 0
         while msges < max_msges:
@@ -94,14 +94,20 @@ class Stats:
 
         occurance = {}
         for peer, stat in stats.items():
-            hash_value = stat['hash']
-            height = stat['height']
-            if hash_value in occurance:
-                count, height, peers = occurance[hash_value]
-                peers.append(peer)
-                occurance[hash_value] = (count + 1, height, peers)
-            else:
-                occurance[hash_value] = (1, height, [peer])
+            try:
+                hash_value = stat['hash']
+                height = stat['height']
+                if hash_value in occurance:
+                    count, height, peers = occurance[hash_value]
+                    peers.append(peer)
+                    occurance[hash_value] = (count + 1, height, peers)
+                else:
+                    occurance[hash_value] = (1, height, [peer])
+            except Exception as e:
+                ic(f"Invalid stat: {stat}")
+                ic(f"Error: {e}")
+                
+                # Handle the invalid stat appropriately
     
         # Create a list to store peers with their height and count
         peer_list = []

@@ -1,3 +1,4 @@
+from  icecream import ic
 from block import Block
 
 class Blockchain:
@@ -41,8 +42,12 @@ class Blockchain:
     
     def is_chain_filled(self,):
 
-        for block in self.chain:
+        for index, block in enumerate(self.chain):
             if block is None:
+                if index == 0:
+                    ic("Genesis block is missing.")
+                else:
+                    ic(f"Missing block at height {index}. Previous block: {self.chain[index - 1]}")
                 return False
         return True
     
@@ -51,7 +56,7 @@ class Blockchain:
         end_height = height + chunk_size
         end_height = min(end_height, self.total_height)  # Prevent overflow
         
-        for i in range(height + 1, end_height + 1):
+        for i in range(height , end_height ):
             if i >= len(self.chain) or self.chain[i] is None:
                 return False
         
@@ -59,12 +64,13 @@ class Blockchain:
     
     def increment_height_by_chunk(self,chunk_size):
 
-        if self.is_chunk_filled(chunk_size):
+        if self.is_chunk_filled(chunk_size) and self.curr_height <= self.total_height-chunk_size:
             self.curr_height += chunk_size
+            assert self.curr_height <= self.total_height, "Height exceeds total height."
         
 
         
-    def create_block(self,hash,height,messages,mined_by,nonce,timestamp):
+    def create_block(self,hash,height,messages,minedBy,nonce,timestamp):
 
         if self.chain[height] is not None:
             return None
@@ -72,11 +78,12 @@ class Blockchain:
         if height == 0:
             prev_hash = None
         else:
+            prev_block = self.chain[height-1]
             
-            prev_hash = self.chain[height-1].hash
+            prev_hash = prev_block.hash
 
 
-        block = Block(mined_by,messages,height,prev_hash,hash,nonce,timestamp)
+        block = Block(minedBy,messages,height,prev_hash,hash,nonce,timestamp)
 
         return block
         

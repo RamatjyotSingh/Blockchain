@@ -216,7 +216,7 @@ class Gossip:
 
     def recv_gossips(self,msg_count=100):
 
-        socket.timeout(5)  # Set a timeout of 5 seconds
+        self.socket.settimeout(5)  # Set a timeout of 5 seconds
         msges = 0
         gossip_replies = []
 

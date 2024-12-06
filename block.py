@@ -67,7 +67,7 @@ def compute_hash(minedBy, messages, height, previous_hash, timestamp, nonce):
     # Convert timestamp and nonce to bytes and update the hash
     hash_base.update(timestamp.to_bytes(8, 'big'))
   
-    hash_base.update(int(nonce).to_bytes(8, 'big'))
+    hash_base.update(nonce.encode('utf-8'))
 
     return hash_base.hexdigest()
 
