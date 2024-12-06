@@ -30,7 +30,7 @@ CONSENSUS_PERIOD = 300  # Seconds
 
 def test_gossip(sock,ip,port):
 
-                gossip = Gossip(sock, ip, port, "Ramatjyot Singh")
+                gossip = Gossip(sock, ip, port, "nigahiga")
                 peers=gossip.execute()
                 print(peers)
                 return peers
@@ -44,7 +44,7 @@ def test_stats(sock,peers):
 
 
 
-def test_get_blocks(priority_peer_groups, sock,gossip,BLOCKCHAIN=None):
+def test_get_blocks(priority_peer_groups, sock,BLOCKCHAIN=None):
     """
     Retrieves blockchain blocks from prioritized peer groups.
 
@@ -66,6 +66,12 @@ def test_get_blocks(priority_peer_groups, sock,gossip,BLOCKCHAIN=None):
         if BLOCKCHAIN is not None:
             if height <= BLOCKCHAIN.curr_height:
                 return BLOCKCHAIN
+            else:
+                get_blocks = GetBlock(sock, BLOCKCHAIN, peers)
+                get_blocks.execute()
+                if BLOCKCHAIN.is_valid():
+                    ic(f"Validated blockchain at height {BLOCKCHAIN.curr_height}")
+                    return BLOCKCHAIN
             
         # Validate that peers is a list
         if not isinstance(peers, list):
@@ -75,7 +81,7 @@ def test_get_blocks(priority_peer_groups, sock,gossip,BLOCKCHAIN=None):
         
         blockchain = Blockchain(height)
 
-        get_blocks = GetBlock(sock, blockchain, peers,gossip)  
+        get_blocks = GetBlock(sock, blockchain, peers)  
         get_blocks.execute()
     
         if blockchain.is_valid():
@@ -87,7 +93,7 @@ def test_get_blocks(priority_peer_groups, sock,gossip,BLOCKCHAIN=None):
             
 
 
-def test_consensus(sock,ip,port,gossip):
+def test_consensus(sock,ip,port):
     global BLOCKCHAIN
     peers = test_gossip(sock, ip, port)  # Fetch peers via gossip
     if peers:
@@ -97,7 +103,7 @@ def test_consensus(sock,ip,port,gossip):
         ic(f"Peer group: {priority_peer_group}")
         if len(priority_peer_group) > 0:
             ic(f"Number of Priority Peers: {len(priority_peer_group)}")
-            BLOCKCHAIN = test_get_blocks(priority_peer_group, sock,gossip,BLOCKCHAIN)
+            BLOCKCHAIN = test_get_blocks(priority_peer_group, sock,BLOCKCHAIN)
             return BLOCKCHAIN
 
 def test_handling_recvs(data, addr,  sock,ip,port, BLOCKCHAIN):
@@ -216,7 +222,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
                     try:
                         if not BLOCKCHAIN:
                         
-                                BLOCKCHAIN = test_consensus(sock, ip, port,gossip)
+                                BLOCKCHAIN = test_consensus(sock, ip, port)
 
                                 if BLOCKCHAIN:
                                     ic(f"Current Height: {BLOCKCHAIN.curr_height}")
@@ -234,6 +240,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
                     except Exception as e:
                             ic(f"Error handling data: {e}")
                             ic(traceback.format_exc())
+                            break
+                    except socket.timeout:
+                            ic("Socket timed out.")
                             break
             
 

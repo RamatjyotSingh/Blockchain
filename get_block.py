@@ -26,7 +26,7 @@ class GetBlock:
        
     # ]  # List of peers that are blocked
 
-    def __init__(self, sock, blockchain, peers,gossip):
+    def __init__(self, sock, blockchain, peers):
         """
         Initializes the GetBlock handler.
 
@@ -39,7 +39,6 @@ class GetBlock:
         self.socket = sock
         self.peers = peers
         self.block_replies = {}
-        self.gossip = gossip
 
     def inc_round_robin_index(self):
         self.ROUND_ROBIN_INDEX = (self.ROUND_ROBIN_INDEX + 1) % len(self.peers)
@@ -125,7 +124,7 @@ class GetBlock:
                 self.send_req(peers[self.ROUND_ROBIN_INDEX], height)
                 self.inc_round_robin_index()
 
-    def recv_res(self, waiting_time=300):
+    def recv_res(self, waiting_time=30):
         """
         Receives a GET_BLOCK_REPLY response.
 
@@ -143,7 +142,6 @@ class GetBlock:
         try:
             while  curr_time - start_time < waiting_time:
                 curr_time = time.time()
-                self.gossip.keep_alive()
                 data, addr = self.socket.recvfrom(4096)
                 # if addr not in self.ACCEPTING_PEERS:
                 #     continue
@@ -157,7 +155,7 @@ class GetBlock:
                     if height is not None:
                         self.block_replies[height] = reply
                         ic(f"Stored reply for height {height}.")
-                        if len(self.block_replies) == self.blockchain.total_height:
+                        if len(self.block_replies) == self.blockchain.total_height or len(self.block_replies.values()) == self.blockchain.curr_height + min(self.CHUNK_SIZE, self.blockchain.total_height - self.blockchain.curr_height):
                             ic("Received all blocks.")
                             break
                         # If the previous block is missing, request it
@@ -218,6 +216,7 @@ class GetBlock:
     def get_blocks_by_chunks(self, peers, chunk_height, retry=0, start_height=None):
         if start_height is None:
             start_height = self.blockchain.get_curr_height()
+
         """
         Retrieves a block at a specific height from peers.
 
@@ -306,6 +305,7 @@ class GetBlock:
         """
         peers = self.peers
         chain_filled = self.blockchain.is_chain_filled()
+
 
         while not chain_filled:
 

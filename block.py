@@ -126,7 +126,11 @@ class Block:
         if len(self.messages) > 10:
             logging.error("A block can have at most 10 messages. Current number of messages: %d", len(self.messages))
             valid = False
-    
+
+        if self.hash[-DIFFICULTY:] != '0' * DIFFICULTY:
+            logging.error("Block hash does not meet difficulty requirement. Hash: '%s'", self.hash)
+            valid = False
+            
         # Validate each message length
         for idx, message in enumerate(self.messages, start=1):
             if len(message) > 20:

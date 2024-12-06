@@ -37,6 +37,7 @@ class Blockchain:
 
         # Initialize the rest of the chain with None
         for i in range(0, self.total_height):
+            
             self.chain.append(None)
 
     

@@ -60,7 +60,7 @@ class Gossip:
         self.last_keep_alive = time.time()
         self.last_clean_up = time.time()
 
-        self.known_peers = [ self.WELL_KNOWN_PEER ]
+        self.known_peers = [ self.WELL_KNOWN_PEER ]   
         self.seen_peers = set()
 
     def create_req(self) :
