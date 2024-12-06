@@ -1,7 +1,6 @@
 import json
 import socket
 import logging
-import time
 from icecream import ic
 # Configure logging
 logging.basicConfig(
@@ -46,13 +45,12 @@ class Stats:
             ic('-'*50)
             self.socket.sendto(json.dumps(req).encode(), (host, port))
 
-    def recv_res(self,waiting_time=5):
+    def recv_res(self,max_msges=200):
 
         self.socket.settimeout(5)  # Set a timeout of 5 seconds
         stats_replies = []
-        start_time = time.time()
-        curr_time = time.time()
-        while curr_time - start_time < waiting_time:
+        msges = 0
+        while msges < max_msges:
             try:
                 data, addr = self.socket.recvfrom(1024)
                 msges += 1

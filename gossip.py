@@ -240,18 +240,17 @@ class Gossip:
                     self.socket.sendto(json.dumps(gossip).encode(), (host, port))
 
 
-    def recv_gossips(self,waiting_time=5):
+    def recv_gossips(self,msg_count=200):
 
         self.socket.settimeout(5)  # Set a timeout of 5 seconds
         gossip_replies = []
-        start_time = time.time()
-        curr_time = time.time()
-        while curr_time - start_time < waiting_time:
-            curr_time = time.time()
+        msges =0
+        while msges < msg_count:
+            
 
             try:
                 data, addr = self.socket.recvfrom(4096)
-                
+                msges += 1
                 
                 reply = json.loads(data)
 
