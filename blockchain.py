@@ -2,7 +2,15 @@
 from icecream import ic
 from block import Block
 import time
+import logging
 
+logging.basicConfig(
+    filename='Blockchain.log',                  # Log file name
+    filemode='a',                           # Append mode
+    level=logging.INFO,                     # Logging level
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log message format
+    datefmt='%Y-%m-%d %H:%M:%S'             # Date format
+)
 
 class Blockchain:
 
@@ -15,10 +23,10 @@ class Blockchain:
         """
         self.chain = []
         self.total_height = total_height
-        self.init_chain(total_height)
+        self.init_chain()
         self.curr_height = 0
 
-    def init_chain(self, total_height):
+    def init_chain(self):
         """
         Initializes the blockchain with a genesis block followed by empty slots.
 
@@ -26,10 +34,9 @@ class Blockchain:
             total_height (int): The total number of blocks the blockchain can hold.
         """
         # Create and add the genesis block
-        self.curr_height = 0  # Next height to add
 
         # Initialize the rest of the chain with None
-        for i in range(0, total_height):
+        for i in range(0, self.total_height):
             self.chain.append(None)
 
     
@@ -117,6 +124,7 @@ class Blockchain:
                     previous_block = self.chain[index - 1]
                     ic(f"Missing block at height {index}. Previous block hash: {previous_block.hash if previous_block else 'None'}")
                 return False
+        self.curr_height = self.total_height
         return True
 
     def is_chunk_filled(self, chunk_size):
@@ -136,6 +144,7 @@ class Blockchain:
         for i in range(height, end_height):
             if  self.chain[i] is None:
                 return False
+      
 
         return True
 
@@ -215,25 +224,4 @@ class Blockchain:
                 return False
         return True
 
-    # Uncomment if you prefer explicit genesis block creation outside of init_chain
-    # def create_genesis_block(self):
-    #     genesis_block = Block(
-    #         hash='2483cc5c0d2fdbeeba3c942bde825270f345b2e9cd28f22d12ba347300000000',
-    #         height=0,
-    #         messages=[
-    #             '3010 rocks',
-    #             'Warning:',
-    #             'Procrastinators',
-    #             'will be sent back',
-    #             'in time to start',
-    #             'early.'
-    #         ],
-    #         previous_hash=None,
-    #         minedBy='Prof!',
-    #         nonce='7965175207940',
-    #         timestamp=1699293749
-    #     )
-    #     self.chain[0] = genesis_block
-    #     self.curr_height = 1
-    #     ic("Genesis block created:")
-    #     ic(genesis_block)
+   

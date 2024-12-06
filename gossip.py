@@ -2,8 +2,17 @@ import socket
 import time
 import uuid
 import json
+import logging
 from icecream import ic
-
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,  # Set the logging level to INFO
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Define the log message format
+    handlers=[
+        logging.FileHandler("gossip.log"),  # Log to a file named app.log
+        logging.StreamHandler()           # Also log to the console
+    ]
+)
 
 class Gossip:
 
@@ -15,6 +24,23 @@ class Gossip:
         'last_seen': int(time.time())
 
         }
+    WELL_KNOWN_PEER2 = {
+        'host':'eagle.cs.umanitoba.ca',
+        'port':8999,
+        'last_seen': int(time.time())
+    }
+    WELL_KNOWN_PEER3 = {
+        'host':'grebe.cs.umanitoba.ca',
+        'port':8999,
+        'last_seen': int(time.time())
+    }
+    WELL_KNOWN_PEER4 = {
+        'host':'hawk.cs.umanitoba.ca',
+        'port':8999,
+        'last_seen': int(time.time())
+    }
+
+
 
 
     MAX_PEERS = 4
@@ -30,7 +56,7 @@ class Gossip:
         self.port = port
         self.name = name
         self.id = None
-
+        self.current_time = time.time()
         self.last_keep_alive = time.time()
         self.last_clean_up = time.time()
 
@@ -103,9 +129,9 @@ class Gossip:
 
         if peer_id and self.new_req(peer_id) and len(self.known_peers) < Gossip.MAX_PEERS:
 
-            ic('-'*50)
-            ic(f"Adding peer {peer_host}:{peer_port} with id {peer_id}")
-            ic('-'*50)
+            # ic('-'*50)
+            # ic(f"Adding peer {peer_host}:{peer_port} with id {peer_id}")
+            # ic('-'*50)
 
             self.update_peer(peer_host,peer_port)
 
@@ -154,9 +180,9 @@ class Gossip:
 
             self.known_peers.remove(known_peer)
 
-            ic('-'*50)
+            # ic('-'*50)
             ic(f"Removing known peer {peer['host']}:{peer['port']} ")
-            ic('-'*50)
+            # ic('-'*50)
 
 
     def first_gossip(self):
@@ -172,16 +198,16 @@ class Gossip:
 
         except KeyError:
 
-            ic("Invalid gossip received")
-            ic(gossip)
+            logging.error("Invalid gossip received")
+            logging.error(gossip)
 
             return
 
         if self.new_req(peer_id) :
 
-            ic('-'*50)
-            ic(f"Replying to peer {peer_host}:{peer_port} with id {peer_id}")
-            ic('-'*50)
+            # ic('-'*50)
+            # ic(f"Replying to peer {peer_host}:{peer_port} with id {peer_id}")
+            # ic('-'*50)
             self.socket.sendto(json.dumps(self.create_res()).encode(), (peer_host, peer_port))
 
             self.track_peer(peer_host,peer_port,peer_id)
@@ -194,15 +220,15 @@ class Gossip:
 
         except KeyError:
 
-                ic("Invalid gossip received")
-                ic(gossip)
+                logging.error("Invalid gossip received")
+                logging.error(gossip)
 
                 return
 
         if self.new_req(gossip_id):
-            ic('-'*50)
-            ic(f"Forwarding gossip from {gossip_host}:{gossip_port} with id {gossip_id}")
-            ic('-'*50)
+            # ic('-'*50)
+            # ic(f"Forwarding gossip from {gossip_host}:{gossip_port} with id {gossip_id}")
+            # ic('-'*50)
             self.track_peer(gossip_host,gossip_port,gossip_id)
 
             for peer in self.known_peers:
@@ -214,42 +240,43 @@ class Gossip:
                     self.socket.sendto(json.dumps(gossip).encode(), (host, port))
 
 
-    def recv_gossips(self,msg_count=100):
+    def recv_gossips(self,waiting_time=5):
 
         self.socket.settimeout(5)  # Set a timeout of 5 seconds
-        msges = 0
         gossip_replies = []
-
-        while msges < msg_count:
+        start_time = time.time()
+        curr_time = time.time()
+        while curr_time - start_time < waiting_time:
+            curr_time = time.time()
 
             try:
-                data, addr = self.socket.recvfrom(1024)
-                ic(data,addr)
-                msges+=1
+                data, addr = self.socket.recvfrom(4096)
+                
+                
                 reply = json.loads(data)
 
                 if reply['type'] == 'GOSSIP' or reply['type'] == 'GOSSIP_REPLY':
 
                     gossip_replies.append((reply, addr))
-                    
+
                 else:
                     continue
 
             except (TimeoutError, socket.timeout):
-                ic("Socket timed out, no more data received.")
+                logging.error("Socket timed out, no more data received.")
                 break
 
             except json.JSONDecodeError:
-                ic("Received malformed JSON data.")
+                logging.error("Received malformed JSON data.")
                 continue  # Continue processing other incoming messages
 
 
             except Exception  :
-                ic('breaking out from loop')
+                logging.error('breaking out from loop')
                 break
 
 
-        ic('-'*50)
+        # ic('-'*50)
 
         return gossip_replies
 
@@ -270,15 +297,13 @@ class Gossip:
 
 
 
-        ic('-'*50)
+        # ic('-'*50)
         ic(f"Peers: {self.known_peers}")
-        ic('-'*50)
+        # ic('-'*50)
         ic(f"Seen Peers: {self.seen_peers}")
-        ic('-'*50)
-
-        # ic(f"Other Replies: {other_replies}")
         # ic('-'*50)
 
+       
         return self.known_peers
 
 
@@ -298,9 +323,9 @@ class Gossip:
         elif reply_type == 'GOSSIP_REPLY':
 
             if  Gossip.MAX_PEERS > len(self.known_peers)  :
-                ic('-'*50)
+                # ic('-'*50)
                 ic(len(self.known_peers))
-                ic('-'*50)
+                # ic('-'*50)
                 ic(Gossip.MAX_PEERS)
 
                 self.update_peer(gossip['host'],gossip['port'])
@@ -308,38 +333,39 @@ class Gossip:
             return
 
     def keep_alive(self):
+         
+        if self.current_time - self.last_keep_alive >= self.KEEP_ALIVE_INTERVAL:
+
+            ic("Executing keep_alive")
+            for  peer in self.known_peers:
+                self.socket.sendto(json.dumps(self.create_req()).encode(), (peer['host'], peer['port']))
+            self.last_keep_alive = self.current_time
 
 
-        for  peer in self.known_peers:
-            self.socket.sendto(json.dumps(self.create_req()).encode(), (peer['host'], peer['port']))
+        
 
     def clean_up(self):
 
-        curr_time = time.time()
 
-        if curr_time - self.last_clean_up > 60:
+        if self.current_time - self.last_clean_up >= self.CLEAN_UP_INTERVAL:
+            
+            ic("Executing clean_up")
 
             self.seen_peers.clear()
 
-        peers_to_remove = [peer for peer in self.known_peers if curr_time - peer['last_seen'] > 60]
+        peers_to_remove = [peer for peer in self.known_peers if self.current_time - peer['last_seen'] > self.CLEAN_UP_INTERVAL]
         for peer in peers_to_remove:
             self.remove_peer(peer)
 
+        self.last_clean_up = self.current_time
 
     def background_task(self):
-        current_time = time.time()
 
-        # Check if it's time to send keep_alive messages
-        if current_time - self.last_keep_alive >= self.KEEP_ALIVE_INTERVAL:
-
-            ic("Executing keep_alive")
-            self.keep_alive()
-            self.last_keep_alive = current_time
+        # Check if it's time to perform keep_alive
+    
+        self.keep_alive()
 
 
         # Check if it's time to perform clean_up
-        if current_time - self.last_clean_up >= self.CLEAN_UP_INTERVAL:
 
-            ic("Executing clean_up")
-            self.clean_up()
-            self.last_clean_up = current_time
+        self.clean_up()

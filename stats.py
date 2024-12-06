@@ -1,7 +1,17 @@
 import json
 import socket
+import logging
+import time
 from icecream import ic
-
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,  # Set the logging level to INFO
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Define the log message format
+    handlers=[
+        logging.FileHandler("app.log"),  # Log to a file named app.log
+        logging.StreamHandler()           # Also log to the console
+    ]
+)
 
 class Stats:
     
@@ -21,7 +31,7 @@ class Stats:
         return {
 
             "type":"STATS_REPLY",
-            "height":block.height,
+            "height":block.height+1,
             "hash":block.hash
             
              }
@@ -36,12 +46,13 @@ class Stats:
             ic('-'*50)
             self.socket.sendto(json.dumps(req).encode(), (host, port))
 
-    def recv_res(self,max_msges=100):
+    def recv_res(self,waiting_time=5):
 
         self.socket.settimeout(5)  # Set a timeout of 5 seconds
         stats_replies = []
-        msges = 0
-        while msges < max_msges:
+        start_time = time.time()
+        curr_time = time.time()
+        while curr_time - start_time < waiting_time:
             try:
                 data, addr = self.socket.recvfrom(1024)
                 msges += 1
@@ -57,11 +68,11 @@ class Stats:
 
            
             except (TimeoutError, socket.timeout):
-                ic("Socket timed out, no more data received.")
+                logging.error("Socket timed out, no more data received.")
                 break
 
             except Exception  :
-                ic('breaking out from loop')
+                logging.error('breaking out from loop')
                 break
 
            
@@ -71,9 +82,8 @@ class Stats:
     def send_res(self,blockchain,peer):
 
         if  blockchain.is_chain_filled():
-            height = len(blockchain.chain)
-            block = blockchain.chain[height-1]
-            res = self.create_res(block)
+            last_block = blockchain.chain[-1]
+            res = self.create_res(last_block)
             host = peer['host']
             port = peer['port']
             ic('-'*50)
@@ -105,8 +115,8 @@ class Stats:
                 else:
                     occurance[hash_value] = (1, height, [peer])
             except Exception as e:
-                ic(f"Invalid stat: {stat}")
-                ic(f"Error: {e}")
+                logging.error(f"Invalid stat: {stat}")
+                logging.error(f"Error: {e}")
                 
                 # Handle the invalid stat appropriately
     
@@ -140,7 +150,7 @@ class Stats:
             if isinstance(height, int):
                 priority_peer_groups[height] = peer_list
             else:
-                ic(f"Invalid height type: {height} (Type: {type(height)})")
+                logging.error(f"Invalid height type: {height} (Type: {type(height)})")
                 # Handle the invalid height appropriately
     
         return priority_peer_groups
@@ -151,7 +161,7 @@ class Stats:
         self.send_req()
         stats_replies = self.recv_res()
         priority_peer_groups = self.get_priority_peer_group(stats_replies)
-        ic('-'*50)
+        # ic('-'*50)
         ic("Priority peers:")
        
         return priority_peer_groups

@@ -4,11 +4,19 @@ import random
 import socket
 import time
 import traceback
-
+import logging
 from icecream import ic
+logging.basicConfig(
+    filename='get_block.log',                  # Log file name
+    filemode='a',                           # Append mode
+    level=logging.INFO,                     # Logging level
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log message format
+    datefmt='%Y-%m-%d %H:%M:%S'             # Date format
+)
 
 
 class GetBlock:
+    ROUND_ROBIN_INDEX = 0
     CHUNK_SIZE = 150
     RETRY_LIMIT = 3  # Maximum number of retries for requesting a block
     TIMEOUT = 5      # Socket timeout in seconds
@@ -18,7 +26,7 @@ class GetBlock:
        
     # ]  # List of peers that are blocked
 
-    def __init__(self, sock, blockchain, peers):
+    def __init__(self, sock, blockchain, peers,gossip):
         """
         Initializes the GetBlock handler.
 
@@ -31,6 +39,10 @@ class GetBlock:
         self.socket = sock
         self.peers = peers
         self.block_replies = {}
+        self.gossip = gossip
+
+    def inc_round_robin_index(self):
+        self.ROUND_ROBIN_INDEX = (self.ROUND_ROBIN_INDEX + 1) % len(self.peers)
 
     def create_req(self, height):
         """
@@ -94,7 +106,7 @@ class GetBlock:
             self.socket.sendto(json.dumps(req).encode(), (host, port))
             ic(f"Sent GET_BLOCK request for height {height} to {host}:{port}")
         except Exception as e:
-            ic(f"Failed to send request to {host}:{port} - {e}")
+            logging.error(f"Failed to send request to {host}:{port} - {e}")
 
     def send_req_to_all(self, peers,start_height,chunk_height):
         """
@@ -106,8 +118,12 @@ class GetBlock:
         """
         
         ic(peers)
-        for height in range(start_height,start_height+chunk_height):
-            self.send_req(peers[ROUND_ROBIN_INDEX], height)
+        total_height = self.blockchain.total_height
+        end_height = min(start_height + chunk_height,total_height)
+        for height in range(start_height,end_height):
+            if self.blockchain.get_block_by_height(height) is None:
+                self.send_req(peers[self.ROUND_ROBIN_INDEX], height)
+                self.inc_round_robin_index()
 
     def recv_res(self, waiting_time=300):
         """
@@ -127,6 +143,7 @@ class GetBlock:
         try:
             while  curr_time - start_time < waiting_time:
                 curr_time = time.time()
+                self.gossip.keep_alive()
                 data, addr = self.socket.recvfrom(4096)
                 # if addr not in self.ACCEPTING_PEERS:
                 #     continue
@@ -151,14 +168,20 @@ class GetBlock:
 
                 
                 else:
+                    # print('\r fetching next block.')
+                    # print('\r fetching next block..')
+                    # print('\r fetching next block...')
+
                     continue
                         
         except (socket.timeout, TimeoutError):
-            ic("Timed out waiting for GET_BLOCK_REPLY.")
-        except json.JSONDecodeError:
-            ic("Received invalid JSON data.")
+            logging.error("Timed out waiting for GET_BLOCK_REPLY.")
+        except json.JSONDecodeError as jsde :
+            logging.error("Received invalid JSON data.")
+            logging.error(jsde)
+            traceback.print_exc()
         except Exception as e:
-            ic(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
             traceback.print_exc()
 
         return self.block_replies
@@ -291,7 +314,7 @@ class GetBlock:
             chain_filled = self.blockchain.is_chain_filled()
 
             if chain_filled:
-                with open('blockreplies.txt', 'w') as f:
+                with open('blockreplies.txt', 'a') as f:
                     for height, reply in self.block_replies.items():
                         f.write(f"{height}: {json.dumps(reply)}\n")
                 ic("Blockchain is fully synchronized.")
@@ -302,14 +325,14 @@ class GetBlock:
                 ic("Chunk is not fully synchronized. Requesting missing blocks.")
                 self.req_missing_blocks(peers, start_height=self.blockchain.get_curr_height())
         
-    def send_res(self, peer):
+    def send_res(self, peer,height):
         """
         Sends a GET_BLOCK_REPLY response to a specified peer.
 
         Args:
             peer (dict): The peer dictionary with 'host' and 'port'.
         """
-        height = self.blockchain.get_curr_height()
+    
         res = self.create_res(height)
         host = peer['host']
         port = peer['port']

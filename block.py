@@ -1,230 +1,151 @@
 from datetime import datetime
 import hashlib
 import time
-import multiprocessing
-from multiprocessing import Process, Queue, Event
+import logging
 from icecream import ic
+
+logging.basicConfig(
+    filename='block.log',                  # Log file name
+    filemode='a',                           # Append mode
+    level=logging.INFO,                     # Logging level
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log message format
+    datefmt='%Y-%m-%d %H:%M:%S'             # Date format
+)
 
 DIFFICULTY = 8  # Adjusted for testing
 
-def worker(minedBy, messages, height, previous_hash, timestamp, difficulty, step, start_nonce, result_queue, stop_event):
-    """
-    Worker function to find a valid nonce.
-    
-    Parameters:
-        minedBy (str): minedBy associated with the block.
-        messages (list): List of messages in the block.
-        height (int): Height of the block in the blockchain.
-        previous_hash (str): Hash of the previous block.
-        timestamp (int): Timestamp of the block creation.
-        difficulty (int): Difficulty level (number of trailing zeros required).
-        step (int): Step size for nonce iteration (number of workers).
-        start_nonce (int): Starting nonce for this worker.
-        result_queue (Queue): Queue to send back the result.
-        stop_event (Event): Event to signal workers to stop searching.
-    """
-    nonce = start_nonce
-    while not stop_event.is_set():
-        # Compute hash for the current nonce
-        hash_result = compute_hash(minedBy, messages, height, previous_hash, timestamp, nonce)
-        
-        # Check if the hash satisfies the difficulty requirement
-        if hash_result.endswith('0' * difficulty):
-            # Put the valid nonce and hash into the result queue
-            result_queue.put((nonce, hash_result))
-            # Signal other workers to stop
-            stop_event.set()
-            break
-        
-        # Increment nonce by the number of workers to avoid overlap
-        nonce += step
-
-def compute_hash(minedBy, messages, height, previous_hash, timestamp, nonce):
-    """
-    Computes the SHA-256 hash of the block's contents.
-    
-    Parameters:
-        minedBy (str): minedBy associated with the block.
-        messages (list): List of messages in the block.
-        height (int): Height of the block in the blockchain.
-        previous_hash (str): Hash of the previous block.
-        timestamp (int): Timestamp of the block creation.
-        nonce (str): Nonce value for Proof-of-Work.
-    
-    Returns:
-        str: The hexadecimal hash of the block.
-    """
-    hash_base = hashlib.sha256()
-
-    if previous_hash is not None:
-        hash_base.update(previous_hash.encode('utf-8'))
-
-    hash_base.update(minedBy.encode('utf-8'))
-
-    for message in messages:
-        hash_base.update(message.encode('utf-8'))
-
-    # Convert timestamp and nonce to bytes and update the hash
-    hash_base.update(timestamp.to_bytes(8, 'big'))
-  
-    hash_base.update(nonce.encode('utf-8'))
-
-    return hash_base.hexdigest()
 
 class Block:
     """
     Represents a single block in the blockchain.
     """
 
-    def __init__(self, minedBy, messages, height, previous_hash,hash=None,nonce=None,timestamp=None):
+    def __init__(self, minedBy, messages, height, previous_hash, hash=None, nonce=None, timestamp=None):
         self.minedBy = minedBy
         self.messages = messages
         self.height = height
-    
-        self.previous_hash = previous_hash
-        
+        self.previous_hash = previous_hash if height != 0 else None
+
         if hash:
             self.hash = hash
-            self.nonce = nonce
+            self.nonce = str(nonce)
             self.timestamp = timestamp
         else:
+            self.timestamp = int(time.time())
             self.nonce = 0
-
-            self.timestamp = int(time.time())  # Initialize timestamp as integer
             self.hash = self.find_valid_hash()
-     
-        # Verify constraints
-        # self.verify_nonce()
-        # self.verify_messages()
-        # self.verify_self()
+            
+        self.verify_self()  # Verify block integrity after mining
 
     def compute_hash(self, nonce):
         """
         Computes the SHA-256 hash of the block's contents with a given nonce.
-        
+
         Parameters:
             nonce (int): The nonce value for Proof-of-Work.
-        
+
         Returns:
             str: The hexadecimal hash of the block.
         """
-        return compute_hash(self.minedBy, self.messages, self.height, self.previous_hash, self.timestamp, nonce)
+        hash_base = hashlib.sha256()
 
-    def verify_hash(self):
-        """
-        Recomputes the hash of the block to verify its integrity.
-        
-        Returns:
-            bool: True if the recomputed hash matches the stored hash and satisfies difficulty, else False.
-        """
-        return self.compute_hash(self.nonce) == self.hash and self.hash[-DIFFICULTY] == '0' * DIFFICULTY, ic(self.compute_hash(self.nonce))
+        if self.previous_hash:
+            hash_base.update(self.previous_hash.encode('utf-8'))
+
+        hash_base.update(self.minedBy.encode('utf-8'))
+
+        for message in self.messages:
+            hash_base.update(message.encode('utf-8'))
+
+        # Convert timestamp and nonce to bytes and update the hash
+        hash_base.update(self.timestamp.to_bytes(8, 'big'))
+        hash_base.update(str(nonce).encode('utf-8'))
+
+        return hash_base.hexdigest()
 
     def find_valid_hash(self):
         """
-        Finds a valid hash by searching for a nonce that satisfies the difficulty requirement using multiprocessing.
-        
+        Finds a valid hash by iterating through nonce values until the difficulty requirement is met.
+
         Returns:
             str: The valid hash.
         """
-        num_workers = max(multiprocessing.cpu_count() - 3,3)  # Number of worker processes
-        result_queue = Queue()
-        stop_event = Event()
-        processes = []
+        nonce = 0
+        print(f"Starting mining for block at height {self.height}...")
+        start_time = time.time()
 
-        print(f"Starting mining with {num_workers} workers...")
-
-        # Start worker processes
-        for i in range(num_workers):
-            p = Process(target=worker, args=(
-                self.minedBy,
-                self.messages,
-                self.height,
-                self.previous_hash,
-                self.timestamp,
-                DIFFICULTY,
-                num_workers,
-                i,
-                result_queue,
-                stop_event
-            ))
-            p.start()
-            processes.append(p)
-            print(f"Worker {i} started.")
-
-        # Wait for a result from any worker
-        nonce, hash_result = result_queue.get()  # This will block until a worker puts a result
-
-        # Set the nonce and hash
-        self.nonce = nonce
-        self.hash = hash_result
-
-        # Ensure all workers are signaled to stop
-        stop_event.set()
-
-        # Terminate all worker processes
-        for p in processes:
-            p.terminate()
-            p.join()
-            print(f"Worker {p.pid} terminated.")
-
-        end_time = time.time()
-        readable_time = datetime.fromtimestamp(end_time).strftime('%H:%M:%S')
-
-        print(f"Valid hash found: Nonce = {nonce}, Hash = {hash_result}")
-        print(f"Time taken to mine block: {end_time - self.timestamp:.2f}s")
-        print(f"Current Time: {readable_time}")
-        print(f"Block timestamp: {self.timestamp}")
-
-        return hash_result 
+        while True:
+            hash_result = self.compute_hash(nonce)
+            if hash_result.endswith('0' * DIFFICULTY):
+                self.nonce = nonce
+                end_time = time.time()
+                print(f"Valid hash found: Nonce = {nonce}, Hash = {hash_result}")
+                print(f"Time taken to mine block: {end_time - start_time:.2f}s")
+                return hash_result
+            nonce += 1
 
     def verify_self(self):
         """
         Verifies the block's integrity by checking its hash and other constraints.
-        
+    
         Raises:
-            AssertionError: If any verification fails.
-        
+            ValueError: If any verification fails.
+    
         Returns:
             bool: True if all verifications pass.
         """
-        assert self.verify_hash(), "Block hash verification failed. " + repr(self)
-        assert self.height >= 0, "Height must be non-negative."
-        assert self.minedBy != '', "minedBy cannot be empty."
-        assert self.previous_hash != '' or self.height == 0, "Previous hash cannot be empty unless height is 0."
-        return True
-
-    def verify_nonce(self):
-        """
-        Verifies the nonce value to ensure it's valid.
-        
-        Raises:
-            AssertionError: If nonce is invalid.
-        
-        Returns:
-            bool: True if nonce is valid.
-        """
-        assert len(str(self.nonce)) < 40, "Nonce must be less than 40 characters."
-        return True
-
-    def verify_messages(self):
-        """
-        Verifies that the block's messages meet the predefined constraints.
-        
-        Raises:
-            AssertionError: If any message constraint is violated.
-        
-        Returns:
-            bool: True if all messages are valid.
-        """
-        assert len(self.messages) <= 10, "A block can have at most 10 messages."
-        for message in self.messages:
-            assert len(message) <= 20, "Each message must be at most 20 characters long."
+        valid = True  # Flag to track overall validity
+    
+        # Validate height
+        if self.height < 0:
+            logging.error("Height must be non-negative. Current height: %d", self.height)
+            valid = False
+    
+        # Validate miner information
+        if not self.minedBy:
+            logging.error("minedBy cannot be empty.")
+            valid = False
+    
+        # Validate previous hash
+        if not self.previous_hash and self.height != 0:
+            logging.error("Previous hash cannot be empty unless height is 0. Current height: %d", self.height)
+            valid = False
+    
+        # Validate timestamp
+        current_time = int(time.time())
+        if self.timestamp > current_time:
+            logging.error("Timestamp cannot be in the future. Block timestamp: %d, Current time: %d", self.timestamp, current_time)
+            valid = False
+    
+        # Validate nonce length
+        if len(str(self.nonce)) > 40:
+            logging.error("Nonce must be at most 40 characters long. Current nonce length: %d", len(str(self.nonce)))
+            valid = False
+    
+        # Validate number of messages
+        if len(self.messages) > 10:
+            logging.error("A block can have at most 10 messages. Current number of messages: %d", len(self.messages))
+            valid = False
+    
+        # Validate each message length
+        for idx, message in enumerate(self.messages, start=1):
+            if len(message) > 20:
+                logging.error("Message %d exceeds 20 characters. Message: '%s'", idx, message)
+                valid = False
+    
+        if not valid:
+            raise ValueError("Block verification failed. Check logs for details.")
+    
+        ic("Block verification passed for height %d.", self.height)
         return True
 
     def __repr__(self):
-        return f"Block(minedBy: {self.minedBy}, Messages: {self.messages}, Height: {self.height}, Previous Hash: {self.previous_hash}, Hash: {self.hash}, Nonce: {self.nonce}, Timestamp: {self.timestamp})"
+        return (
+            f"Block(minedBy: {self.minedBy}, Messages: {self.messages}, Height: {self.height}, "
+            f"Previous Hash: {self.previous_hash}, Hash: {self.hash}, Nonce: {self.nonce}, Timestamp: {self.timestamp})"
+        )
 
-   
+
 # Example usage
 if __name__ == "__main__":
     with open("blocks.txt", "w") as f:
