@@ -9,7 +9,7 @@ from icecream import ic
 
 class GetBlock:
 
-    CHUNK_SIZE = 500
+    CHUNK_SIZE = 150
 
 
     def __init__(self,socket, blockchain,peers):
@@ -57,13 +57,15 @@ class GetBlock:
             req = self.create_req(height)
             self.socket.sendto(json.dumps(req).encode(), (host, port))
 
-    def recv_res(self):
-
+    def recv_res(self ,wanted_height=None):
+        
+        if wanted_height is not None:
+             if self.temp_block_replies.get(wanted_height) is not None:
+                  
         self.block_replies 
        
         try:
                 data, addr = self.socket.recvfrom(1024)
-                ic(data,addr)
                 reply = json.loads(data)
 
                 if reply['type'] == 'GET_BLOCK_REPLY':
@@ -73,16 +75,7 @@ class GetBlock:
 
                         ic(f"Stored reply for height {height}.")
 
-                        if self.blockchain.get_block_by_height(height -1 ) is  None:
-                            peer_host = addr[0]
-                            peer_port = addr[1]
-                            peer = {
-                                'host': peer_host,
-                                'port': peer_port
-                            }
-                            self.send_req(peer,height-1)
-                            ic(f"Requesting block at height {height-1}.")
-                            self.recv_res()
+                       
 
                         block = self.blockchain.create_block(
 
@@ -94,9 +87,11 @@ class GetBlock:
                         timestamp=reply['timestamp']
 
                         )
+                        if block is None:
+                            self.temp_block_replies[height] = reply
+                            return
                   
-                    if block is None:
-                        return 
+                            
                         # verify block should be in create_block()
 
                     self.blockchain.add_block(block,height)
@@ -118,9 +113,9 @@ class GetBlock:
     def get_block(self,height,peers):
 
         curr_peer = peers[random.randint(0, len(peers) - 1)]
-        ic(curr_peer)
+        # ic(curr_peer)
         self.send_req(curr_peer,height)
-        block_replies = self.recv_res()
+        block_replies = self.recv_res(wanted_height=height)
 
         try:
             reply = block_replies[height]
@@ -133,11 +128,13 @@ class GetBlock:
         except KeyError:
             ic(block_replies)
 
+
             print(f"Failed to retrieve block at height {height}.")
-            self.send_req(curr_peer,height)
+           
+         
             return 
         except Exception as e:  
-            self.send_req(curr_peer,height-1)
+          
             ic(block_replies)
 
             ic("Traceback:")
@@ -157,7 +154,7 @@ class GetBlock:
         if start_height >= self.blockchain.total_height:
             return
         ic(start_height)
-        end_height = start_height + chunk_size
+        end_height = min(start_height + chunk_size,self.blockchain.total_height)
 
         for height in range(start_height, end_height):
 
@@ -168,9 +165,11 @@ class GetBlock:
             
             if not self.blockchain.is_chunk_filled(chunk_size):
                 self.req_missing_blocks(peers,chunk_size)
-            
-
+        
+        with open('blockchain_data.txt', 'a') as f:
+            f.write('chunk_size: ' + str(chunk_size) + '\n' + 'start_height: ' + str(start_height) + '\n')
         ic(chunk_size)
+        ic(start_height)
 
            
 
@@ -200,10 +199,15 @@ class GetBlock:
            
             self.get_blocks_in_chunks(peers, self.CHUNK_SIZE)
             self.blockchain.increment_height_by_chunk(self.CHUNK_SIZE)
+            time.sleep(1)
             
             chain_filled = self.blockchain.is_chain_filled()
 
             if chain_filled:
+                with open('blockreplies.txt', 'w') as f:
+                    for block in self.block_replies:
+                        f.write(block)
+
                 break
             
             else:

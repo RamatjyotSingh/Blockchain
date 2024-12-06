@@ -66,6 +66,8 @@ class Blockchain:
 
         if self.is_chunk_filled(chunk_size) and self.curr_height <= self.total_height-chunk_size:
             self.curr_height += chunk_size
+            with open('blockchain_data.txt', 'a') as f:
+                f.write('curr_height: ' + str(self.curr_height) + '\n')
             assert self.curr_height <= self.total_height, "Height exceeds total height."
         
 
