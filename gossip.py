@@ -122,9 +122,9 @@ class Gossip:
 
     def track_peer(self, peer_host, peer_port,peer_id):
 
-        ic('-'*50)
-        ic(f"Peers here: {self.known_peers}")
-        ic('-'*50)
+        # ic('-'*50)
+        # ic(f"Peers here: {self.known_peers}")
+        # ic('-'*50)
 
 
         if peer_id and self.new_req(peer_id) and len(self.known_peers) < Gossip.MAX_PEERS:
@@ -323,9 +323,9 @@ class Gossip:
 
             if  Gossip.MAX_PEERS > len(self.known_peers)  :
                 # ic('-'*50)
-                ic(len(self.known_peers))
-                # ic('-'*50)
-                ic(Gossip.MAX_PEERS)
+                # ic(len(self.known_peers))
+                # # ic('-'*50)
+                # ic(Gossip.MAX_PEERS)
 
                 self.update_peer(gossip['host'],gossip['port'])
         else:

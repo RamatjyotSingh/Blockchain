@@ -5,8 +5,10 @@ from icecream import ic
 
 class Announce:
 
-    def __init__(self,block,sock,peers):
+    def __init__(self,sock,block,peers):
+        self.sock = sock
         self.block = block
+        self.peers = peers
         self.broadcast()
 
     def broadcast(self):
@@ -18,7 +20,7 @@ class Announce:
                 ic('-'*50)
                 ic(f"Sending ANNOUNCE to {host}:{port}")
                 ic('-'*50)
-                self.socket.sendto(json.dumps(req).encode(), (host, port))
+                self.sock.sendto(json.dumps(req).encode(), (host, port))
 
 
         

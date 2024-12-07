@@ -1,4 +1,5 @@
 # blockchain.py
+import traceback
 from icecream import ic
 from block import Block
 import time
@@ -59,6 +60,22 @@ class Blockchain:
         else:
             ic(f"Block verification failed at height {height}.")
             return False
+
+    
+    def get_last_valid_block(self):
+        """
+        Retrieves the last non-None block from the blockchain.
+
+        Args:
+            blockchain (Blockchain): The blockchain instance.
+
+        Returns:
+            Block or None: The last valid block if exists, otherwise None.
+        """
+        for block in reversed(self.chain):
+            if block is not None:
+                return block
+        return None
 
     def verify_block(self, block, height):
         """

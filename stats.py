@@ -26,12 +26,13 @@ class Stats:
             'type': 'STATS'
 
         } 
-    def create_res(self,block):
+    def create_res(self,blockchain):
+        last_block = blockchain.get_last_valid_block()
         return {
 
             "type":"STATS_REPLY",
-            "height":block.height+1,
-            "hash":block.hash
+            "height":last_block.height+1,
+            "hash":last_block.hash
             
              }
     
@@ -79,9 +80,8 @@ class Stats:
     
     def send_res(self,blockchain,peer):
 
-        if  blockchain.is_chain_filled():
-            last_block = blockchain.chain[-1]
-            res = self.create_res(last_block)
+           
+            res = self.create_res(blockchain)
             host = peer['host']
             port = peer['port']
             ic('-'*50)

@@ -26,7 +26,7 @@ class GetBlock:
        
     # ]  # List of peers that are blocked
 
-    def __init__(self, sock, blockchain, peers):
+    def __init__(self, sock, blockchain, peers, gossip, stats):
         """
         Initializes the GetBlock handler.
 
@@ -39,6 +39,8 @@ class GetBlock:
         self.socket = sock
         self.peers = peers
         self.block_replies = {}
+        self.gossip = gossip
+        self.stats = stats
 
     def inc_round_robin_index(self):
         self.ROUND_ROBIN_INDEX = (self.ROUND_ROBIN_INDEX + 1) % len(self.peers)
@@ -145,7 +147,7 @@ class GetBlock:
                 data, addr = self.socket.recvfrom(4096)
                 # if addr not in self.ACCEPTING_PEERS:
                 #     continue
-
+                peer= {'host': addr[0], 'port': addr[1]}
                 reply = json.loads(data.decode('utf-8'))
 
                 
@@ -164,11 +166,12 @@ class GetBlock:
                         #     self.send_req(peer, height - 1)
                         #     ic(f"Requesting block at height {height - 1} from {peer}")
 
-                
+                # elif reply.get('type') == 'GOSSIP' or reply.get('type') == 'GOSSIP_REPLY':
+                #     self.gossip.handle_gossip(reply)
+                # elif reply.get('type') == 'STATS':
+                #     self.stats.send_res(self.blockchain,peer)
+              
                 else:
-                    # print('\r fetching next block.')
-                    # print('\r fetching next block..')
-                    # print('\r fetching next block...')
 
                     continue
                         
