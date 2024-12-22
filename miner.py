@@ -4,20 +4,20 @@ import argparse
 import time
 import json
 import multiprocessing
-import logging
-from block import Block
+import sys
 
 class Miner:
-    DIFFICULTY = 8
-    MASTER = ('localhost', 10000)
+    
+   
 
-    def __init__(self, height, messages, previous_hash, minedBy="Ninja-Hattori"):
+    def __init__(self, previous_hash, minedBy,messages,difficulty):
         self.height = height
         self.messages = messages
         self.previous_hash = previous_hash
         self.minedBy = minedBy
         self.timestamp = int(time.time())
         self.nonce = 0
+        self.DIFFICULTY = difficulty
 
     def get_static_hash(self):
         hashbase = hashlib.sha256()
@@ -62,12 +62,12 @@ class Miner:
         self.nonce = nonce
         return hash_hex
 
-    def report_block(self, block,sock):
+    def report_Block(self, block,sock):
         """
         Sends the mined block to a peer using TCP.
         """
         try:
-                block_data = json.dumps(block.to_dict()).encode('utf-8')
+                block_data = json.dumps(block).encode('utf-8')
                 sock.sendall(block_data)
                 print(f'Sent block to {self.MASTER}')
         except Exception as e:
@@ -90,15 +90,26 @@ if __name__ == "__main__":
         print(f"Connected to {MASTER}")
         data = sock.recv(4096)
         data = json.loads(data.decode('utf-8'))
+        print(f"Received data: {data}")
         messages = data['messages']
         height = data['height']
         previous_hash = data['previous_hash']
-        miner = Miner(height, messages, previous_hash)
+        difficulty = data['difficulty']
+        miner = Miner(height, messages, previous_hash,difficulty)
         mined_hash = miner.mine_block(args.processes)
-        mined_block = Block(miner.minedBy, messages, height, previous_hash, mined_hash, miner.nonce, miner.timestamp)
-        miner.report_block(mined_block,sock)
+
+        block = {
+            'height': height,
+            'messages': messages,
+            'previous_hash': previous_hash,
+            'minedBy': miner.minedBy,
+            'timestamp': miner.timestamp,
+            'nonce': miner.nonce,
+            'hash': mined_hash
+        }
+        miner.report_block(block,sock)
       
-        print(f"Block mined: {mined_block}")
+        print(f"Block mined: {block}")
         print(f"Block sent to {args.peer_host}:{args.peer_port}")
         print("Announcement sent to peer")
         print("Miner program completed.")

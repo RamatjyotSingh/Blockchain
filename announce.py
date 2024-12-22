@@ -14,8 +14,7 @@ class Announce:
         if self.block:
             req = self.create_req(self.block)
             for peer in self.peers:  # Iterate over the values of the dictionary
-                host = peer['host']
-                port = peer['port']
+                host,port = peer['host'],peer['port']
                 ic('-'*50)
                 ic(f"Sending ANNOUNCE to {host}:{port}")
                 ic('-'*50)
@@ -28,12 +27,12 @@ class Announce:
     def create_req(block):
         return {
             'type': 'ANNOUNCE',
-            "height":block.height,
-            "minedBy": block.minedBy,
-            "nonce": block.nonce,
-            "messages": block.messages,
-            "hash": block.hash,
-            "timestamp": block.timestamp
+            "height":block['height'],
+            "minedBy": block['minedBy'],
+            "nonce": block['nonce'],
+            "messages": block['messages'],
+            "hash": block['hash'],
+            "timestamp": block['timestamp']
         }
     def handle_announcement(self,data,blockchain):
         

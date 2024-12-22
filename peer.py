@@ -64,5 +64,8 @@ class Peer:
     def do_announce(self,block,peers):
 
         self.protocol.announce_block(block,peers)
+    
+    
+        
 
         

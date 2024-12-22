@@ -10,7 +10,7 @@ import time
 
 class Protocol:
 
-    def __init__(self, name="Ramatjyot Singh", port=8784, max_peers=4, clean_up_interval=60, keep_alive_interval=30, difficulty=8, well_known_peers=None, chunk_size=150, retry_limit=3,consensus_interval=600):
+    def __init__(self, name="Ramatjyot Singh", port=8784,tcp_port=8785 ,max_peers=4, clean_up_interval=60, keep_alive_interval=30, difficulty=8, well_known_peers=None, chunk_size=150, retry_limit=3,consensus_interval=600):
         self.name = name
         self.PORT = port
         self.MAX_PEERS = max_peers
@@ -32,6 +32,8 @@ class Protocol:
         self.announce = None
         self.get_block = None
         self.gossip = None
+        self.TCPPort = tcp_port
+      
 
     def setup_sock(self):
         '''
@@ -94,7 +96,21 @@ class Protocol:
         """
         assert self.blockchain is not None, "Blockchain module must be initialized before get_block."
         self.get_block = GetBlock(self.socket, priority_peers, self.blockchain, self.gossip, self.stats, self.CHUNK_SIZE, self.RETRY_LIMIT)
-    
+
+   
+
+
+
+    def create_miner_socket(self):
+
+        self.TCPsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.TCPsocket.bind((socket.gethostbyname(socket.gethostname()), self.TCPPort))
+        self.TCPsocket.listen(5)
+        self.TCPsocket.setblocking(False)
+        print(f"Miner Master is listening on IP: {socket.gethostbyname(socket.gethostname())}, Port: {self.TCPPort}")
+        return self.TCPsocket
+   
+
     def announce_block(self, block, peers):
         """
         Announces a new block to the given peers.
@@ -140,7 +156,8 @@ class Protocol:
                     print("7. Change CHUNK_SIZE (Size of chunks of blocks to recv from peers)")
                     print("8. Change RETRY_LIMIT (Number of retry attempts from peers before giving up)")
                     print("9. Change Consensus Interval(Number of seconds to wait before running consensus)")
-                    print("10. Exit")
+                    print("10. Change Port for Miner")
+                    print("11. Exit")
                     param_choice = input("Enter your choice: ").strip()
 
                     if param_choice == '1':
@@ -180,6 +197,10 @@ class Protocol:
                         self.CONSENSUS_INTERVAL = new_value
                         print(f"Consensus Interval set to {self.CONSENSUS_INTERVAL}")
                     elif param_choice == '10':
+                        new_value = int(input("Enter new value for Port for Miner: ").strip())
+                        self.TCPPort = new_value
+                        print(f"Port for Miner set to {self.TCPPort}")
+                    elif param_choice == '11':
                         print("Exiting menu.")
                         break
                     else:
