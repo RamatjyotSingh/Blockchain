@@ -16,52 +16,23 @@ logging.basicConfig(
 
 class Gossip:
 
-    #could have made peer an object but json is fine too lazy to do that
-    WELL_KNOWN_PEER = {
 
-        'host': '130.179.28.37',
-        'port': 8999,
-        'last_seen': int(time.time())
-
-        }
-    WELL_KNOWN_PEER2 = {
-        'host':'eagle.cs.umanitoba.ca',
-        'port':8999,
-        'last_seen': int(time.time())
-    }
-    WELL_KNOWN_PEER3 = {
-        'host':'grebe.cs.umanitoba.ca',
-        'port':8999,
-        'last_seen': int(time.time())
-    }
-    WELL_KNOWN_PEER4 = {
-        'host':'hawk.cs.umanitoba.ca',
-        'port':8999,
-        'last_seen': int(time.time())
-    }
-
-
-
-
-    MAX_PEERS = 4
-
-    CLEAN_UP_INTERVAL = 60
-    KEEP_ALIVE_INTERVAL = 30
-
-
-    def __init__(self, socket,host,port,name):
+    def __init__(self, socket, name , well_known_peers, max_peers, clean_up_interval, keep_alive_interval):
 
         self.socket = socket
-        self.host = host
-        self.port = port
+        self.host, self.port = self.socket.getsockname()
         self.name = name
         self.id = None
         self.current_time = time.time()
         self.last_keep_alive = time.time()
         self.last_clean_up = time.time()
-
-        self.known_peers = [ self.WELL_KNOWN_PEER ]   
+        
+        self.known_peers = well_known_peers
         self.seen_peers = set()
+        self.MAX_PEERS = max_peers
+        self.CLEAN_UP_INTERVAL = clean_up_interval
+        self.KEEP_ALIVE_INTERVAL = keep_alive_interval
+
 
     def create_req(self) :
 
@@ -127,7 +98,7 @@ class Gossip:
         # ic('-'*50)
 
 
-        if peer_id and self.new_req(peer_id) and len(self.known_peers) < Gossip.MAX_PEERS:
+        if peer_id and self.new_req(peer_id) and len(self.known_peers) < self.MAX_PEERS:
 
             # ic('-'*50)
             # ic(f"Adding peer {peer_host}:{peer_port} with id {peer_id}")
@@ -150,7 +121,7 @@ class Gossip:
                 'last_seen': int(time.time())
 
             }
-            assert len(self.known_peers) < Gossip.MAX_PEERS
+            assert len(self.known_peers) < self.MAX_PEERS
             self.known_peers.append(peer)
 
         else:
@@ -187,7 +158,8 @@ class Gossip:
 
     def first_gossip(self):
 
-        self.socket.sendto(json.dumps(self.create_req()).encode(), (Gossip.WELL_KNOWN_PEER['host'], Gossip.WELL_KNOWN_PEER['port']))
+        for WELL_KNOWN_PEER in self.known_peers:
+            self.socket.sendto(json.dumps(self.create_req()).encode(), (WELL_KNOWN_PEER['host'], WELL_KNOWN_PEER['port']))
 
 
     def reply_gossip(self,gossip):
@@ -321,7 +293,7 @@ class Gossip:
 
         elif reply_type == 'GOSSIP_REPLY':
 
-            if  Gossip.MAX_PEERS > len(self.known_peers)  :
+            if  self.MAX_PEERS > len(self.known_peers)  :
                 # ic('-'*50)
                 # ic(len(self.known_peers))
                 # # ic('-'*50)
@@ -358,7 +330,7 @@ class Gossip:
 
         self.last_clean_up = self.current_time
 
-    def background_task(self):
+    def do_background_tasks(self):
 
         # Check if it's time to perform keep_alive
     

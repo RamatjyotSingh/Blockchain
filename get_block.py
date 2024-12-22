@@ -16,17 +16,11 @@ logging.basicConfig(
 
 
 class GetBlock:
-    ROUND_ROBIN_INDEX = 0
-    CHUNK_SIZE = 150
-    RETRY_LIMIT = 3  # Maximum number of retries for requesting a block
-    TIMEOUT = 5      # Socket timeout in seconds
-    # ACCEPTING_PEERS = [
-    #     ("130.179.28.113", 8999),
-    #     ("130.179.28.117", 8999),
-       
-    # ]  # List of peers that are blocked
 
-    def __init__(self, sock, blockchain, peers, gossip, stats):
+   
+     
+
+    def __init__(self, sock, peers,blockchain, gossip, stats,chunk_size, retry_limit):
         """
         Initializes the GetBlock handler.
 
@@ -41,6 +35,9 @@ class GetBlock:
         self.block_replies = {}
         self.gossip = gossip
         self.stats = stats
+        self.CHUNK_SIZE = chunk_size
+        self.ROUND_ROBIN_INDEX = 0
+        self.RETRY_LIMIT = retry_limit
 
     def inc_round_robin_index(self):
         self.ROUND_ROBIN_INDEX = (self.ROUND_ROBIN_INDEX + 1) % len(self.peers)
@@ -105,7 +102,7 @@ class GetBlock:
         req = self.create_req(height)
         try:
             self.socket.sendto(json.dumps(req).encode(), (host, port))
-            ic(f"Sent GET_BLOCK request for height {height} to {host}:{port}")
+            # ic(f"Sent GET_BLOCK request for height {height} to {host}:{port}")
         except Exception as e:
             logging.error(f"Failed to send request to {host}:{port} - {e}")
 
@@ -118,7 +115,7 @@ class GetBlock:
             total_height (int): The height of the blockcahin to request.
         """
         
-        ic(peers)
+        # ic(peers)
         total_height = self.blockchain.total_height
         end_height = min(start_height + chunk_height,total_height)
         for height in range(start_height,end_height):
@@ -126,54 +123,55 @@ class GetBlock:
                 self.send_req(peers[self.ROUND_ROBIN_INDEX], height)
                 self.inc_round_robin_index()
 
-    def recv_res(self, waiting_time=30):
+    def recv_res(self, max_messages=None):
+
+        if max_messages is None:
+            max_messages = self.CHUNK_SIZE * 3
+
         """
         Receives a GET_BLOCK_REPLY response.
 
         Args:
-            wanted_height (int, optional): The specific block height to wait for.
+            max_messages (int): The maximum number of messages to receive.
 
         Returns:
             dict: The received block replies mapped by their heights.
         """
 
         self.block_replies = {}
-        self.socket.settimeout(self.TIMEOUT)
-        start_time = time.time()
-        curr_time = start_time
+        num_messages = 0
+
         try:
-            while  curr_time - start_time < waiting_time:
-                curr_time = time.time()
-                data, addr = self.socket.recvfrom(4096)
+
+            while num_messages < max_messages:
+
+                data, peer = self.socket.recvfrom(4096)
+                num_messages += 1
                 # if addr not in self.ACCEPTING_PEERS:
                 #     continue
-                peer= {'host': addr[0], 'port': addr[1]}
+               
                 reply = json.loads(data.decode('utf-8'))
 
                 
 
                 if reply.get('type') == 'GET_BLOCK_REPLY':
                     height = reply.get('height')
-                    if height is not None:
-                        self.block_replies[height] = reply
-                        ic(f"Stored reply for height {height}.")
-                        if len(self.block_replies) == self.blockchain.total_height or len(self.block_replies.values()) == self.blockchain.curr_height + min(self.CHUNK_SIZE, self.blockchain.total_height - self.blockchain.curr_height):
-                            ic("Received all blocks.")
-                            break
-                        # If the previous block is missing, request it
-                        # if height > 0 and self.blockchain.get_block_by_height(height - 1) is None:
-                        #     peer = {'host': addr[0], 'port': addr[1]}
-                        #     self.send_req(peer, height - 1)
-                        #     ic(f"Requesting block at height {height - 1} from {peer}")
+                    if height is None:
+                        ic("Received empty block reply.")
+                        continue
+                    self.block_replies[height] = reply
+                    # ic(f"Stored reply for height {height}.")
+                    if len(self.block_replies) == self.blockchain.total_height or len(self.block_replies) == self.blockchain.curr_height + min(self.CHUNK_SIZE, self.blockchain.total_height - self.blockchain.curr_height):
+                        ic("Received all blocks.")
+                        break
+                       
 
-                # elif reply.get('type') == 'GOSSIP' or reply.get('type') == 'GOSSIP_REPLY':
-                #     self.gossip.handle_gossip(reply)
-                # elif reply.get('type') == 'STATS':
-                #     self.stats.send_res(self.blockchain,peer)
+                elif reply.get('type') == 'GOSSIP' or reply.get('type') == 'GOSSIP_REPLY':
+                    self.gossip.handle_gossip(reply)
+                elif reply.get('type') == 'STATS':
+                    self.stats.send_res(self.blockchain,peer)
               
-                else:
-
-                    continue
+               
                         
         except (socket.timeout, TimeoutError):
             logging.error("Timed out waiting for GET_BLOCK_REPLY.")
@@ -187,38 +185,65 @@ class GetBlock:
 
         return self.block_replies
 
-    def add_block_from_reply(self, reply):
+    def is_chunk_filled(self):
         """
-        Adds a block to the blockchain based on the GET_BLOCK_REPLY.
+        Checks if a chunk of blocks starting from the current height is filled.
 
-        Args:
-            reply (dict): The GET_BLOCK_REPLY message.
+        Returns:
+            bool: True if the chunk is fully filled, False otherwise.
         """
-        if reply['hash'] is None:
-            ic(f"No block found at height {reply['height']}.")
-            return
+        height = self.blockchain.curr_height
+        end_height = height + self.CHUNK_SIZE
+        end_height = min(end_height, self.blockchain.total_height)  # Prevent overflow
 
-        block = self.blockchain.create_block(
-            hash=reply['hash'],
-            height=reply['height'],
-            messages=reply['messages'],
-            minedBy=reply['minedBy'],  # Ensure consistency
-            nonce=reply['nonce'],
-            timestamp=reply['timestamp']
-        )
+        for i in range(height, end_height):
+            if  self.blockchain.chain[i] is None:
+                return False
+      
 
-        if block:
-            added = self.blockchain.add_block(block, reply['height'])
-            if added:
-                ic(f"Added block at height {reply['height']}.")
-            else:
-                ic(f"Failed to add block at height {reply['height']}.")
+        return True
+    
+    # def add_chunk_of_blocks(self, chunk_height):
+    #     """
+    #     Adds a chunk of blocks to the blockchain.
+
+    #     Args:
+    #         chunk_height (int): The chunks of blocks to add.
+    #     """
+    #     start_height = self.blockchain.curr_height
+    #     end_height = min(start_height + chunk_height, self.blockchain.total_height)
+
+    #     for height in range(start_height, end_height):
+    #         block = self.blockchain.get_block_by_height(height)
+    #         if block is None:
+    #             ic(f"Block at height {height} is missing.")
+    #             return
+
+    #         added = self.blockchain.add_block(block, height)
+    #         if added:
+    #             ic(f"Added block at height {height}.")
+    #         else:
+    #             ic(f"Failed to add block at height {height}.")
+
+    def increment_height_by_chunk(self):
+        """
+        Increments the current height by a specified chunk size if the chunk is filled.
+
+        """
+        if self.is_chunk_filled() and self.blockchain.curr_height <= self.blockchain.total_height - self.CHUNK_SIZE:
+            self.blockchain.curr_height += min(self.CHUNK_SIZE, self.blockchain.total_height - self.blockchain.curr_height)
+            with open('blockchain_data.txt', 'a') as f:
+                f.write('curr_height: ' + str(self.blockchain.curr_height) + '\n')
+            assert self.blockchain.curr_height <= self.blockchain.total_height, "Height exceeds total height."
+            ic(f"Current height incremented by {self.blockchain.curr_height-self.CHUNK_SIZE} to {self.blockchain.curr_height}.")
         else:
-            ic("Block creation failed.")
+            ic(f"Cannot increment height by {self.CHUNK_SIZE}. Either chunk is not filled or exceeds total height.")
+
+    
 
     def get_blocks_by_chunks(self, peers, chunk_height, retry=0, start_height=None):
         if start_height is None:
-            start_height = self.blockchain.get_curr_height()
+            start_height = self.blockchain.curr_height
 
         """
         Retrieves a block at a specific height from peers.
@@ -230,22 +255,24 @@ class GetBlock:
         
         if retry > self.RETRY_LIMIT:
             ic("Retry limit reached.")
-            return
+            return False
         if not peers:
             ic("No peers available to request blocks.")
-            return
+            return False
 
         self.send_req_to_all(peers,start_height,chunk_height)
         block_replies = self.recv_res()
 
         # Process all received replies in ascending order of height
         for h, reply in sorted(block_replies.items()):
-            ic(f"Height: {h}, Reply: {reply}")
-            self.add_block_from_reply(reply)
+            # ic(f"Height: {h}, Reply: {reply}")
+            self.blockchain.add_block_from_reply(reply)
         
-        if self.blockchain.is_chunk_filled(chunk_height):
+        if self.is_chunk_filled():
             ic("Chunk is filled.")
-            self.blockchain.increment_height_by_chunk(chunk_height)
+            self.increment_height_by_chunk()
+            return True
+           
         else:
             ic("Chunk is not filled. Requesting missing blocks.")
             time.sleep(1)
@@ -271,7 +298,7 @@ class GetBlock:
     #         if height >= self.blockchain.total_height:
     #             raise Exception("Height out of bounds")
 
-    #         if not self.blockchain.is_chunk_filled(chunk_size):
+    #         if not self.is_chunk_filled():
     #             self.req_missing_blocks(peers, chunk_size)
     #             break  # Exit to retry after filling missing blocks
 
@@ -286,47 +313,59 @@ class GetBlock:
 
         Args:
             peers (list): List of peer dictionaries.
-            chunk_size (int): Number of blocks to request.
             start_height (int, optional): Starting height for requesting blocks.
         """
-
+       
         for height in range(start_height, start_height + self.CHUNK_SIZE + 1):
             if self.blockchain.get_block_by_height(height) is None:
                 ic(f"Requesting block at height {height}.")
                 for peer in peers:
                     self.send_req(peer, height)
 
-        replies = self.recv_res(5)
+        replies = self.recv_res(self.CHUNK_SIZE*3)
 
         for h, reply in replies.items():
-            ic(f"Height: {h}, Reply: {reply}")
-            self.add_block_from_reply(reply)
+            # ic(f"Height: {h}, Reply: {reply}")
+            self.blockchain.add_block_from_reply(reply)
+        
+        if self.is_chunk_filled():
+            ic("Chunk is filled.")
+            self.increment_height_by_chunk()
+            return True
+        else:
+            ic("Chunk is not filled even after requesting missing blocks.")
+            return False
 
     def execute(self):
         """
         Executes the block retrieval process until the blockchain is fully synchronized.
         """
-        peers = self.peers
         chain_filled = self.blockchain.is_chain_filled()
-
-
+        
         while not chain_filled:
+       
+            chunk_filled = self.get_blocks_by_chunks(self.peers, self.CHUNK_SIZE)
 
-            self.get_blocks_by_chunks(peers, self.CHUNK_SIZE)
-
+            if not chunk_filled:
+                ic("Failed to retrieve blocks. Trying to request missing blocks.")
+                #last desperate attempt to fill the chunk
+                filled = self.req_missing_blocks(self.peers, self.blockchain.curr_height)
+                if filled:
+                    continue
+                return False
+            
             chain_filled = self.blockchain.is_chain_filled()
-
-            if chain_filled:
+     
+          
+        if chain_filled:
                 with open('blockreplies.txt', 'a') as f:
                     for height, reply in self.block_replies.items():
                         f.write(f"{height}: {json.dumps(reply)}\n")
                 ic("Blockchain is fully synchronized.")
-                break
-            
-            #failsafe
-            if not self.blockchain.is_chunk_filled(self.CHUNK_SIZE):
-                ic("Chunk is not fully synchronized. Requesting missing blocks.")
-                self.req_missing_blocks(peers, start_height=self.blockchain.get_curr_height())
+                return True
+        else:
+            ic("Failed to synchronize blockchain.")
+            return False
         
     def send_res(self, peer,height):
         """
@@ -337,7 +376,5 @@ class GetBlock:
         """
     
         res = self.create_res(height)
-        host = peer['host']
-        port = peer['port']
-        ic(f"Sending GET_BLOCK_REPLY to {host}:{port}")
-        self.socket.sendto(json.dumps(res).encode(), (host, port))
+        ic(f"Sending GET_BLOCK_REPLY to {peer}")
+        self.socket.sendto(json.dumps(res).encode(), peer)

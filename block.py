@@ -12,15 +12,23 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'             # Date format
 )
 
-DIFFICULTY = 8  # Adjusted for testing
 
 
 class Block:
     """
     Represents a single block in the blockchain.
     """
+    DIFFICULTY = None
 
     def __init__(self, minedBy, messages, height, previous_hash, hash=None, nonce=None, timestamp=None):
+        
+        """
+        Initializes a new block.
+        """
+
+        assert Block.DIFFICULTY is not None, "Block difficulty must be set before creating a block."
+
+
         self.minedBy = minedBy
         self.messages = messages
         self.height = height
@@ -76,7 +84,7 @@ class Block:
 
         while True:
             hash_result = self.compute_hash(nonce)
-            if hash_result.endswith('0' * DIFFICULTY):
+            if hash_result.endswith('0' * Block.DIFFICULTY):
                 self.nonce = nonce
                 end_time = time.time()
                 print(f"Valid hash found: Nonce = {nonce}, Hash = {hash_result}")
@@ -127,7 +135,7 @@ class Block:
             logging.error("A block can have at most 10 messages. Current number of messages: %d", len(self.messages))
             valid = False
 
-        if self.hash[-DIFFICULTY:] != '0' * DIFFICULTY:
+        if self.hash[-Block.DIFFICULTY:] != '0' * Block.DIFFICULTY:
             logging.error("Block hash does not meet difficulty requirement. Hash: '%s'", self.hash)
             valid = False
             

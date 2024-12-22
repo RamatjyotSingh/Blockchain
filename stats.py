@@ -82,12 +82,10 @@ class Stats:
 
            
             res = self.create_res(blockchain)
-            host = peer['host']
-            port = peer['port']
             ic('-'*50)
-            ic(f"Sending STATS_REPLY to {host}:{port}")
+            ic(f"Sending STATS_REPLY to {peer}")
             ic('-'*50)
-            self.socket.sendto(json.dumps(res).encode(), (host, port))
+            self.socket.sendto(json.dumps(res).encode(), peer)
     
     def filter_stats(self, stats_replies):
         stats = {}

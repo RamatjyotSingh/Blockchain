@@ -1,8 +1,7 @@
 import json
-
-from block import Block
 from icecream import ic
-
+from block import Block
+ 
 class Announce:
 
     def __init__(self,sock,block,peers):
@@ -36,4 +35,8 @@ class Announce:
             "hash": block.hash,
             "timestamp": block.timestamp
         }
+    def handle_announcement(self,data,blockchain):
+        
+        blockchain.add_block_from_reply(data)
+        
     

@@ -1,42 +1,200 @@
-from consensus import Consensus
+import argparse
+from    consensus import Consensus
 from stats import Stats
 from announce import Announce
 from get_block import GetBlock
 from gossip import Gossip
+from blockchain import Blockchain
 import socket
-
-# The Protocol class is the main class that will be used to interact with the blockchain. It will be used to create the socket, and to initialize the other classes that will be used to interact with the blockchain. 
-# The Protocol class will have the following attributes:
-# - socket: This will be the socket that will be used to send and receive messages.
-# - consensus: This will be an instance of the Consensus class that will be used to reach consensus on the blockchain.
-# - stats: This will be an instance of the Stats class that will be used to keep track of the statistics of the blockchain.
-# - announce: This will be an instance of the Announce class that will be used to announce new blocks to the network.
-# - get_block: This will be an instance of the GetBlock class that will be used to get blocks from the network.
-# - gossip: This will be an instance of the Gossip class that will be used to gossip with other nodes in the network.
-# The Protocol class will have the following methods:
-# - create_socket: This method will create a socket and return it.
-# - init_get_block: This method will initialize the GetBlock class with the blockchain and the socket.
-# - get_socket: This method will return the socket.
-
-# important note : initialize each protocol type before using it
+import time
 
 class Protocol:
 
-    def __init__(self):
-        self.socket = self.create_socket()
+    def __init__(self, name="Ramatjyot Singh", port=8784, max_peers=4, clean_up_interval=60, keep_alive_interval=30, difficulty=8, well_known_peers=None, chunk_size=150, retry_limit=3,consensus_interval=600):
+        self.name = name
+        self.PORT = port
+        self.MAX_PEERS = max_peers
+        self.CLEAN_UP_INTERVAL = clean_up_interval
+        self.KEEP_ALIVE_INTERVAL = keep_alive_interval
+        self.DIFFICULTY = difficulty
+        self.WELL_KNOWN_PEERS = well_known_peers if well_known_peers else [{
+            'host': '130.179.28.37',
+            'port': 8999,
+            'last_seen': int(time.time())
+        }]
+        self.CHUNK_SIZE = chunk_size
+        self.RETRY_LIMIT = retry_limit
+        self.CONSENSUS_INTERVAL = consensus_interval
+        self.setup_sock()
+        self.blockchain = None
         self.consensus = None
         self.stats = None
         self.announce = None
         self.get_block = None
         self.gossip = None
+
+    def setup_sock(self):
+        '''
+        Creates and returns UDP socket and binds it to the given port.
+        '''
+        ip = socket.gethostbyname(socket.gethostname())
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind((ip, self.PORT))
+        host, port = self.socket.getsockname()
+        self.socket.settimeout(5)
+        print(f"Socket is bound to IP: {host}, Port: {port}")
         
+    def init_blockchain(self, total_height):
+        """
+        Initializes the blockchain with the given total height and difficulty.
+        This method should only be called after obtaining stats from other nodes.
+        
+        Args:
+            total_height (int): The total height of the blockchain.
+        
+        Raises:
+            AssertionError: If the stats module is not initialized.
+        """
+        assert self.stats is not None, "Stats module must be initialized before blockchain."
 
-    def create_socket(self):
-        return socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    def init_get_block(self,blockchain):
-
-        self.get_block = GetBlock(blockchain,self.socket)
+        self.blockchain = Blockchain(total_height, self.DIFFICULTY)
     
+    def init_gossip(self):
+        """
+        Initializes the gossip protocol with the default name "Ramatjyot Singh" unless modified through --modify-params.
+        
+        """
+        self.gossip = Gossip(self.socket, self.name, self.WELL_KNOWN_PEERS, self.MAX_PEERS, self.CLEAN_UP_INTERVAL, self.KEEP_ALIVE_INTERVAL)
+    
+    def init_stats(self, peers):
+
+        """
+        Initializes the stats module with the given peers.
+        This method should only be called after gossiping with other nodes and tracking them.
+        
+        Args:
+            peers (list): A list of peers tracked by the gossip module.
+        
+        Raises:
+            AssertionError: If the gossip module is not initialized.
+        """
+        assert self.gossip is not None, "Gossip module must be initialized before stats."
+        self.stats = Stats(self.socket, peers)
+    
+    def init_get_block(self, priority_peers):
+        """
+        Initializes the get_block module with the given priority peers.
+        This method should only be called after initializing the blockchain.
+        
+        Args:
+            priority_peers (list): A list of priority peers for block retrieval, obtained through the stats module.
+        
+        Raises:
+            AssertionError: If the blockchain module is not initialized.
+        """
+        assert self.blockchain is not None, "Blockchain module must be initialized before get_block."
+        self.get_block = GetBlock(self.socket, priority_peers, self.blockchain, self.gossip, self.stats, self.CHUNK_SIZE, self.RETRY_LIMIT)
+    
+    def announce_block(self, block, peers):
+        """
+        Announces a new block to the given peers.
+        
+        Args:
+            block (Block): The block to be announced.
+            peers (list): A list of peers to announce the block to.
+        """
+        self.announce = Announce(self.socket, block, peers)
+    
+
+    def init_consensus(self,MyPeer):
+        """
+        Initializes the consensus module.
+        
+        Args:
+            MyPeer (Peer): The peer object representing the current node.
+        """
+        self.consensus = Consensus(MyPeer, self.CONSENSUS_INTERVAL)
+
     def get_socket(self):
         return self.socket
+
+    def modify_params(self):
+
+        print("\n--- Modify Class-Level Constants ---")
+        print("WARNING: You are about to modify class-level constants. This provides great flexibility to adjust the behavior of the blockchain. However, incorrect parameters may cause the program to crash or behave unexpectedly. Do you wish to proceed? (y/n)")
+        choice = input().strip().lower()
+        if choice == 'n':
+            return
+        elif choice == 'y':
+            while True:
+            
+                try:
+                
+                    print("Available parameters to change:")
+                    print("1. Change NAME (Node name)")
+                    print("2. Change MAX_PEERS (Maximum number of peers to track)")
+                    print("3. Change CLEAN_UP_INTERVAL (Interval in seconds to clean up peers)")
+                    print("4. Change KEEP_ALIVE_INTERVAL (Interval in seconds to send keep-alive messages)")
+                    print("5. Change DIFFICULTY (Block difficulty level to accept)")
+                    print("6. Change WELL_KNOWN_PEERS (List of well-known peers)")
+                    print("7. Change CHUNK_SIZE (Size of chunks of blocks to recv from peers)")
+                    print("8. Change RETRY_LIMIT (Number of retry attempts from peers before giving up)")
+                    print("9. Change Consensus Interval(Number of seconds to wait before running consensus)")
+                    print("10. Exit")
+                    param_choice = input("Enter your choice: ").strip()
+
+                    if param_choice == '1':
+                        new_value = input("Enter new value for NAME: ").strip()
+                        self.name = new_value
+                        print(f"NAME set to {self.name}")
+                    elif param_choice == '2':
+                        new_value = int(input("Enter new value for MAX_PEERS: ").strip())
+                        self.MAX_PEERS = new_value
+                        print(f"MAX_PEERS set to {self.MAX_PEERS}")
+                    elif param_choice == '3':
+                        new_value = int(input("Enter new value for CLEAN_UP_INTERVAL (seconds): ").strip())
+                        self.CLEAN_UP_INTERVAL = new_value
+                        print(f"CLEAN_UP_INTERVAL set to {self.CLEAN_UP_INTERVAL} seconds")
+                    elif param_choice == '4':
+                        new_value = int(input("Enter new value for KEEP_ALIVE_INTERVAL (seconds): ").strip())
+                        self.KEEP_ALIVE_INTERVAL = new_value
+                        print(f"KEEP_ALIVE_INTERVAL set to {self.KEEP_ALIVE_INTERVAL} seconds")
+                    elif param_choice == '5':
+                        new_value = int(input("Enter new value for DIFFICULTY: ").strip())
+                        self.DIFFICULTY = new_value
+                        print(f"DIFFICULTY set to {self.DIFFICULTY}")
+                    elif param_choice == '6':
+                        new_peers = input("Enter new well-known peers in the format 'host:port,host:port' ").strip()
+                        self.WELL_KNOWN_PEERS = [{'host': host, 'port': int(port), 'last_seen': int(time.time())} for host, port in (peer.split(':') for peer in new_peers.split(','))]
+                        print(f"WELL_KNOWN_PEERS set to {self.WELL_KNOWN_PEERS}")
+                    elif param_choice == '7':
+                        new_value = int(input("Enter new value for CHUNK_SIZE: ").strip())
+                        self.CHUNK_SIZE = new_value
+                        print(f"CHUNK_SIZE set to {self.CHUNK_SIZE}")
+                    elif param_choice == '8':
+                        new_value = int(input("Enter new value for RETRY_LIMIT: ").strip())
+                        self.RETRY_LIMIT = new_value
+                        print(f"RETRY_LIMIT set to {self.RETRY_LIMIT}")
+                    elif param_choice == '9':
+                        new_value = int(input("Enter new value for Consensus Interval: ").strip())
+                        self.CONSENSUS_INTERVAL = new_value
+                        print(f"Consensus Interval set to {self.CONSENSUS_INTERVAL}")
+                    elif param_choice == '10':
+                        print("Exiting menu.")
+                        break
+                    else:
+                        print("Invalid choice. Please try again.")
+                        continue
+                        
+                    print("Do you want to modify more parameters? (y/n)")
+                    choice = input().strip().lower()
+                    if choice == 'n':
+                        break
+                    elif choice == 'y':
+                        continue
+
+                except ValueError:
+                    print("Invalid input. Please try again.")
+        else:
+            print("Invalid choice. Please try again.")
+

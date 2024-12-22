@@ -20,7 +20,7 @@ This project implements a peer in a blockchain network. The peer participates in
   - **File**: `gossip.py`
   - **Key Methods**:
     - `handle_gossip`: Processes incoming GOSSIP messages and replies.
-    - `clean_up`: Removes inactive peers from the list.
+    - `clean_up`: Removes inactive peers from the list. removes all the peers (known and seen) after 1 minnute
     - `keep_alive`: sends `heartbeat` messages.
 
 ---
@@ -61,7 +61,7 @@ This project implements a peer in a blockchain network. The peer participates in
   - **File**: `stats.py`
   - **Key Methods**:
     - `send_req`: Sends `STATS` requests to peers.
-    - `find_priority_peers`: Determines the most reliable peers for synchronization.
+    - `find_priority_peers`: Determines the most reliable peers for synchronization. 
   - **File**: `test.py`
   - **Key Method**:
     - `test_consensus (line 96 -107)`: Coordinates the consensus process and chain updates .
