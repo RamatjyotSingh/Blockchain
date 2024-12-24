@@ -15,6 +15,7 @@ class Miner:
         self.timestamp = int(time.time())
         self.nonce = 0
         self.DIFFICULTY = difficulty
+       
 
     def get_static_hash(self):
         hashbase = hashlib.sha256()
@@ -51,13 +52,14 @@ class Miner:
 
 # Command-line interface
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(description="Miner Program")
     parser.add_argument("--peer_host", type=str, required=True, help="Peer host (IP address)")
     parser.add_argument("--peer_port", type=int, required=True, help="Peer port")
     args = parser.parse_args()
 
     MASTER = (args.peer_host, args.peer_port)
-
+    MINING_HEIGHT = None
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect(MASTER)
         print(f"Connected to {MASTER}")
@@ -78,23 +80,29 @@ if __name__ == "__main__":
                     previous_hash = data['previous_hash']
                     difficulty = data['difficulty']
                     minedBy = data['minedBy']
-                    miner = Miner(previous_hash, minedBy, messages, difficulty, height)
-                    mined_hash = miner.mine_block()
+                    if MINING_HEIGHT is None:
+                        MINING_HEIGHT = height
+                        
+                    if MINING_HEIGHT != height:
+                        
+                        miner = Miner(previous_hash, minedBy, messages, difficulty, height)
+                        MINING_HEIGHT = height
+                        mined_hash = miner.mine_block()
 
-                    block = {
-                        'height': height,
-                        'messages': messages,
-                        'previous_hash': previous_hash,
-                        'minedBy': miner.minedBy,
-                        'timestamp': miner.timestamp,
-                        'nonce': miner.nonce,
-                        'hash': mined_hash
-                    }
-                    print(block)
-                    miner.report_block(block, sock, MASTER)
+                        block = {
+                            'height': height,
+                            'messages': messages,
+                            'previous_hash': previous_hash,
+                            'minedBy': miner.minedBy,
+                            'timestamp': miner.timestamp,
+                            'nonce': miner.nonce,
+                            'hash': mined_hash
+                        }
+                        print(block)
+                        miner.report_block(block, sock, MASTER)
 
-                    print(f"Block mined: {block}")
-                    print(f"Block sent to {args.peer_host}:{args.peer_port}")
+                        print(f"Block mined: {block}")
+                        print(f"Block sent to {args.peer_host}:{args.peer_port}")
 
             except Exception as e:
                 print(f"Error: {e}")
