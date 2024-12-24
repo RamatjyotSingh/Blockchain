@@ -28,13 +28,13 @@ class MinerMaster:
                 self.add_miner(miner)
             else:
                 data = s.recv(4096)
-                ic(data)
+                print(data)
              
                 
             
                 try:
                             block = json.loads(data)
-                            ic(block)
+                            print(block)
                             if block:
                                 self.protocol.announce_block(block,peers)
 

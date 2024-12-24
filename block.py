@@ -2,7 +2,6 @@ from datetime import datetime
 import hashlib
 import time
 import logging
-from icecream import ic
 
 logging.basicConfig(
     filename='block.log',                  # Log file name
@@ -148,7 +147,7 @@ class Block:
         if not valid:
             raise ValueError("Block verification failed. Check logs for details.")
     
-        ic("Block verification passed for height %d.", self.height)
+        print("Block verification passed for height %d.", self.height)
         return True
 
     def __repr__(self):

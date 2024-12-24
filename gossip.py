@@ -93,20 +93,20 @@ class Gossip:
 
     def track_peer(self, peer_host, peer_port,peer_id):
 
-        # ic('-'*50)
-        # ic(f"Peers here: {self.known_peers}")
-        # ic('-'*50)
+        # print('-'*50)
+        # print(f"Peers here: {self.known_peers}")
+        # print('-'*50)
 
 
         if peer_id and self.new_req(peer_id) and len(self.known_peers) < self.MAX_PEERS:
 
-            # ic('-'*50)
-            # ic(f"Adding peer {peer_host}:{peer_port} with id {peer_id}")
-            # ic('-'*50)
+            # print('-'*50)
+            # print(f"Adding peer {peer_host}:{peer_port} with id {peer_id}")
+            # print('-'*50)
 
             self.update_peer(peer_host,peer_port)
 
-            ic("Adding peer to peers")
+            print("Adding peer to peers")
 
     def update_peer(self,peer_host,peer_port):
 
@@ -151,9 +151,9 @@ class Gossip:
 
             self.known_peers.remove(known_peer)
 
-            # ic('-'*50)
-            ic(f"Removing known peer {peer['host']}:{peer['port']} ")
-            # ic('-'*50)
+            # print('-'*50)
+            print(f"Removing known peer {peer['host']}:{peer['port']} ")
+            # print('-'*50)
 
 
     def first_gossip(self):
@@ -177,9 +177,9 @@ class Gossip:
 
         if self.new_req(peer_id) :
 
-            # ic('-'*50)
-            # ic(f"Replying to peer {peer_host}:{peer_port} with id {peer_id}")
-            # ic('-'*50)
+            # print('-'*50)
+            # print(f"Replying to peer {peer_host}:{peer_port} with id {peer_id}")
+            # print('-'*50)
             self.socket.sendto(json.dumps(self.create_res()).encode(), (peer_host, peer_port))
 
             self.track_peer(peer_host,peer_port,peer_id)
@@ -198,9 +198,9 @@ class Gossip:
                 return
 
         if self.new_req(gossip_id):
-            # ic('-'*50)
-            # ic(f"Forwarding gossip from {gossip_host}:{gossip_port} with id {gossip_id}")
-            # ic('-'*50)
+            # print('-'*50)
+            # print(f"Forwarding gossip from {gossip_host}:{gossip_port} with id {gossip_id}")
+            # print('-'*50)
             self.track_peer(gossip_host,gossip_port,gossip_id)
 
             for peer in self.known_peers:
@@ -247,7 +247,7 @@ class Gossip:
                 break
 
 
-        # ic('-'*50)
+        # print('-'*50)
 
         return gossip_replies
 
@@ -268,11 +268,11 @@ class Gossip:
 
 
 
-        # ic('-'*50)
-        ic(f"Peers: {self.known_peers}")
-        # ic('-'*50)
-        ic(f"Seen Peers: {self.seen_peers}")
-        # ic('-'*50)
+        # print('-'*50)
+        print(f"Peers: {self.known_peers}")
+        # print('-'*50)
+        print(f"Seen Peers: {self.seen_peers}")
+        # print('-'*50)
 
        
         return self.known_peers
@@ -294,10 +294,10 @@ class Gossip:
         elif reply_type == 'GOSSIP_REPLY':
 
             if  self.MAX_PEERS > len(self.known_peers)  :
-                # ic('-'*50)
-                # ic(len(self.known_peers))
-                # # ic('-'*50)
-                # ic(Gossip.MAX_PEERS)
+                # print('-'*50)
+                # print(len(self.known_peers))
+                # # print('-'*50)
+                # print(Gossip.MAX_PEERS)
 
                 self.update_peer(gossip['host'],gossip['port'])
         else:
@@ -307,7 +307,7 @@ class Gossip:
          
         if self.current_time - self.last_keep_alive >= self.KEEP_ALIVE_INTERVAL:
 
-            ic("Executing keep_alive")
+            print("Executing keep_alive")
             for  peer in self.known_peers:
                 self.socket.sendto(json.dumps(self.create_req()).encode(), (peer['host'], peer['port']))
             self.last_keep_alive = self.current_time
@@ -320,7 +320,7 @@ class Gossip:
 
         if self.current_time - self.last_clean_up >= self.CLEAN_UP_INTERVAL:
             
-            ic("Executing clean_up")
+            print("Executing clean_up")
 
             self.seen_peers.clear()
 

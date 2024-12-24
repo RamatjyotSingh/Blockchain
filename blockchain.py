@@ -55,7 +55,7 @@ class Blockchain:
             bool: True if the block was added successfully, False otherwise.
         """
         height = reply['height']
-        
+
         if height == self.total_height:
             self.chain.append(None)
 
@@ -69,7 +69,7 @@ class Blockchain:
         link = self.verify_integrity(block,height)
         
         if not link:
-            # ic(f"Block verification failed at height {height}.")
+            # print(f"Block verification failed at height {height}.")
             return False
         
        
@@ -79,7 +79,7 @@ class Blockchain:
                 self.total_height += 1
                 self.curr_height += 1
                 self.chain.append(block)
-                # ic(f"Block added at height {height}.")
+                # print(f"Block added at height {height}.")
 
 
                 return True
@@ -87,7 +87,7 @@ class Blockchain:
         elif height < self.total_height: # Insert at the specified height
             
             self.chain[height] = block
-            # ic(f"Block added at height {height}.")
+            # print(f"Block added at height {height}.")
             return True
        
 
@@ -122,10 +122,10 @@ class Blockchain:
         if height > 0:
             prev_block = self.get_block_by_height(height - 1)
             if  prev_block is None:
-                ic(f"No previous block found for height {height}.")
+                print(f"No previous block found for height {height}.")
                 return False
             if block.previous_hash != prev_block.hash:
-                ic(f"Hash mismatch at height {height}: {block.previous_hash} != {prev_block.hash}")
+                print(f"Hash mismatch at height {height}: {block.previous_hash} != {prev_block.hash}")
                 return False
         # Verify the block's own integrity (e.g., proof-of-work, hash validity)
        
@@ -144,7 +144,7 @@ class Blockchain:
         if 0 <= height < len(self.chain):
             return self.chain[height]
         else:
-            ic(f"Height {height} is out of bounds.")
+            print(f"Height {height} is out of bounds.")
             return None
 
    
@@ -158,10 +158,10 @@ class Blockchain:
         for index, block in enumerate(self.chain):
             if block is None:
                 if index == 0:
-                    ic("Genesis block is missing.")
+                    print("Genesis block is missing.")
                 else:
                     previous_block = self.chain[index - 1]
-                    ic(f"Missing block at height {index}. Previous block hash: {previous_block.hash if previous_block else 'None'}")
+                    print(f"Missing block at height {index}. Previous block hash: {previous_block.hash if previous_block else 'None'}")
                 return False
         self.curr_height = self.total_height
         return True
@@ -187,12 +187,12 @@ class Blockchain:
             timestamp = reply['timestamp']
 
         except KeyError:
-            ic("Invalid block data received.")
+            print("Invalid block data received.")
             return None
 
 
         if self.chain[height] is not None:
-            ic(f"Block already exists at height {height}.")
+            print(f"Block already exists at height {height}.")
             return None
 
         if height == 0:
@@ -201,7 +201,7 @@ class Blockchain:
             prev_block = self.chain[height - 1]
 
             if not prev_block:
-                ic(f"Cannot create block at height {height} because previous block at height {height - 1} is missing.")
+                print(f"Cannot create block at height {height} because previous block at height {height - 1} is missing.")
                 return None
             
             prev_hash = prev_block.hash
@@ -228,7 +228,7 @@ class Blockchain:
         """
         for i in range(1, len(self.chain)):
             if not self.verify_integrity(self.chain[i], i):
-                ic(f"Invalid block detected at height {i}.")
+                print(f"Invalid block detected at height {i}.")
                 return False
         return True
 

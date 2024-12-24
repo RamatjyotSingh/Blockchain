@@ -71,7 +71,7 @@ if __name__ == "__main__":
           
             
                     data = json.loads(data.decode('utf-8'))
-                    ic(data)
+                    print(data)
                     print(f"Received data: {data}")
                     messages = data['messages']
                     height = data['height']
@@ -90,7 +90,7 @@ if __name__ == "__main__":
                         'nonce': miner.nonce,
                         'hash': mined_hash
                     }
-                    ic(block)
+                    print(block)
                     miner.report_block(block, sock, MASTER)
 
                     print(f"Block mined: {block}")

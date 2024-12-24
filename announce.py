@@ -1,5 +1,4 @@
 import json
-from icecream import ic
 from block import Block
  
 class Announce:
@@ -17,7 +16,7 @@ class Announce:
                 host,port = peer['host'],peer['port']
                 
                 self.sock.sendto(json.dumps(req).encode(), (host, port))
-                ic(f"Sending ANNOUNCE to {host}:{port}")
+                print(f"Sending ANNOUNCE to {host}:{port}")
 
 
 

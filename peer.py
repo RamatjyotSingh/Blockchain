@@ -22,7 +22,7 @@ class Peer:
     def fetch_blocks(self,priority_peer_groups):
 
         for height, priority_peers in priority_peer_groups.items():
-            ic(f"Processing height: {height}")
+            print(f"Processing height: {height}")
                
 
             try:  
@@ -37,16 +37,16 @@ class Peer:
                 if self.protocol.blockchain.is_valid():
                     blockchain = self.protocol.blockchain
                     
-                    ic(f"Validated blockchain at height {blockchain.curr_height}")
+                    print(f"Validated blockchain at height {blockchain.curr_height}")
 
                     return True
                 
                 else:
-                    ic("Invalid blockchain.")
+                    print("Invalid blockchain.")
                     continue
             except Exception as e:
-                ic(f"Error: {e}")
-                ic(traceback.format_exc())
+                print(f"Error: {e}")
+                print(traceback.format_exc())
                 continue
 
 

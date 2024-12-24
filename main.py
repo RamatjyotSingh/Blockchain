@@ -2,7 +2,7 @@ import argparse
 from protocol import Protocol
 from peer import Peer
 from request_handler import RequestHandler
-from miner_master import MinerMaster
+from miner_manager import MinerMaster
 import traceback
 
 class Main:
