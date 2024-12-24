@@ -73,16 +73,14 @@ if __name__ == "__main__":
           
             
                     data = json.loads(data.decode('utf-8'))
-                    print(data)
-                    print(f"Received data: {data}")
+                  
                     messages = data['messages']
                     height = data['height']
                     previous_hash = data['previous_hash']
                     difficulty = data['difficulty']
                     minedBy = data['minedBy']
-                    if MINING_HEIGHT is None:
-                        MINING_HEIGHT = height
-                        
+                  
+
                     if MINING_HEIGHT != height:
                         
                         miner = Miner(previous_hash, minedBy, messages, difficulty, height)
