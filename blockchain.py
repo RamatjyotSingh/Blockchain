@@ -54,13 +54,16 @@ class Blockchain:
         Returns:
             bool: True if the block was added successfully, False otherwise.
         """
+        height = reply['height']
+        
+        if height == self.total_height:
+            self.chain.append(None)
 
         block = self.create_block(reply)
 
         if block is None:
             return False
         
-        height = reply['height']
         assert height == block.height
 
         link = self.verify_integrity(block,height)

@@ -12,27 +12,27 @@ class Announce:
 
     def broadcast(self):
         if self.block:
-            req = self.create_req(self.block)
+            req = self.create_req()
             for peer in self.peers:  # Iterate over the values of the dictionary
                 host,port = peer['host'],peer['port']
-                ic('-'*50)
-                ic(f"Sending ANNOUNCE to {host}:{port}")
-                ic('-'*50)
+                
                 self.sock.sendto(json.dumps(req).encode(), (host, port))
+                ic(f"Sending ANNOUNCE to {host}:{port}")
+
 
 
         
     
 
-    def create_req(block):
+    def create_req(self):
         return {
             'type': 'ANNOUNCE',
-            "height":block['height'],
-            "minedBy": block['minedBy'],
-            "nonce": block['nonce'],
-            "messages": block['messages'],
-            "hash": block['hash'],
-            "timestamp": block['timestamp']
+            "height":self.block['height'],
+            "minedBy": self.block['minedBy'],
+            "nonce": self.block['nonce'],
+            "messages": self.block['messages'],
+            "hash": self.block['hash'],
+            "timestamp": self.block['timestamp']
         }
     def handle_announcement(self,data,blockchain):
         

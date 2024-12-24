@@ -24,7 +24,8 @@ class Main:
 
                 self.peer.do_background_tasks()
                 request_handler = RequestHandler(self.protocol.socket,self.protocol.gossip,self.protocol.stats,self.protocol.get_block,self.protocol.announce,self.protocol.consensus,self.protocol.blockchain)
-                [word] = request_handler.handle()
+                word = request_handler.handle()
+               
                 self.miner_master.manage_miners(word,self.protocol.gossip.known_peers)
                 
                     

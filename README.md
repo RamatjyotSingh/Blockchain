@@ -2,7 +2,7 @@
 
 ## **Overview**
 
-This project implements a peer in a blockchain network. The peer participates in the network through GOSSIP protocols, synchronizes and validates the blockchain, handles mining via TCP-connected miners, and ensures consensus among peers. The system follows proof-of-work for block validation and supports efficient decentralized operations.
+This project implements a peer in a blockchain network that participates through GOSSIP protocols, synchronizes and validates the blockchain, handles mining via TCP-connected miners, and ensures consensus among peers. It employs proof-of-work for block validation, supporting efficient decentralized operations.
 
 ---
 
@@ -11,17 +11,17 @@ This project implements a peer in a blockchain network. The peer participates in
 ### **1. Peer Discovery and Network Joining**
 
 - **GOSSIP Protocol**:
-  - The peer announces its presence to the network by sending `GOSSIP` messages to known hosts and tracked peers.
+  - Announces the peer’s presence to the network by sending `GOSSIP` messages to known hosts and tracked peers.
   - Replies to `GOSSIP` messages with `GOSSIP-REPLY`.
-  - Keeps a list of active peers, removing those inactive for over a minute.
+  - Maintains a list of active peers, removing those inactive for over a minute.
 - **Integration**:
-  - GOSSIP is used as a keep-alive mechanism, sending updates every 30 seconds.
+  - GOSSIP serves as a keep-alive mechanism, sending updates every 30 seconds.
 - **Code Highlights**:
   - **File**: `gossip.py`
   - **Key Methods**:
     - `handle_gossip`: Processes incoming GOSSIP messages and replies.
-    - `clean_up`: Removes inactive peers from the list. removes all the peers (known and seen) after 1 minnute
-    - `keep_alive`: sends `heartbeat` messages.
+    - `clean_up`: Removes inactive peers from the list.
+    - `keep_alive`: Sends periodic heartbeat messages.
 
 ---
 
@@ -29,11 +29,11 @@ This project implements a peer in a blockchain network. The peer participates in
 
 - **Fetching Blocks**:
   - Retrieves blocks using the `GET_BLOCK` protocol from peers in a load-balanced, chunk-based manner.
-  - Handles lost requests by retrying until the chain is complete.
+  - Implements retry mechanisms for handling lost requests.
 - **Chain Validation**:
   - Validates the blockchain using proof-of-work rules, ensuring hashes, nonces, and linkages meet the required difficulty level.
 - **Integration**:
-  - Chain synchronization is triggered upon joining the network or during periodic consensus.
+  - Synchronization is triggered upon network joining or during periodic consensus.
 - **Code Highlights**:
   - **File**: `get_block.py`
   - **Key Methods**:
@@ -42,10 +42,7 @@ This project implements a peer in a blockchain network. The peer participates in
   - **File**: `blockchain.py`
   - **Key Methods**:
     - `verify_block`: Validates individual blocks for proof-of-work and hash correctness.
-    - `is_valid`: Ensures the entire chain’s integrity.
-    - **File**: `test.py`
-    - **Key Methods**:
-      - `test_handling_recvs (lines 120-130)`: Adds newly mined blocks to the top of the chain. Each new block is verified upon addition. See the `Block` class for details.
+    - `is_valid`: Ensures the integrity of the entire chain.
 
 ---
 
@@ -61,10 +58,7 @@ This project implements a peer in a blockchain network. The peer participates in
   - **File**: `stats.py`
   - **Key Methods**:
     - `send_req`: Sends `STATS` requests to peers.
-    - `find_priority_peers`: Determines the most reliable peers for synchronization. 
-  - **File**: `test.py`
-  - **Key Method**:
-    - `test_consensus (line 96 -107)`: Coordinates the consensus process and chain updates .
+    - `find_priority_peers`: Identifies the most reliable peers for synchronization.
 
 ---
 
@@ -72,20 +66,18 @@ This project implements a peer in a blockchain network. The peer participates in
 
 - **Efficient Mining**:
   - Miners use parallel processing to find a valid nonce for proof-of-work.
-  - Mining is done through a separate TCP-connected program.
-  - The mined block is sent to the peer, which validates and announces it.
+  - Mining is conducted through a separate TCP-connected program.
+  - The peer validates and announces mined blocks.
 - **Block Announcement**:
   - Uses the `ANNOUNCE` protocol to propagate newly mined blocks to peers.
 - **Code Highlights**:
   - **File**: `miner.py`
   - **Key Methods**:
-    - `mine_block`: Mines a block using `multiprocessing`.
-    - `report_block`: Sends the mined block back to the peer.
+    - `mine_block`: Mines a block.
+    - `report_block`: Sends the mined block to the peer.
   - **File**: `announce.py`
   - **Key Methods**:
     - `broadcast`: Propagates mined blocks using `ANNOUNCE`.
-  - **File**: `block.txt`
-    - **Description**: Contains a record of some of the blocks that have been mined.
 
 ---
 
@@ -98,7 +90,7 @@ This project implements a peer in a blockchain network. The peer participates in
 2. **Decentralized Operations**:
    - Supports peer-to-peer communication for synchronization and mining.
 3. **Resilient Consensus**:
-   - Ensures chain validity and conflict resolution during chain updates.
+   - Ensures chain validity and resolves conflicts during updates.
 
 ### **Challenges and Solutions**
 
@@ -115,7 +107,7 @@ This project implements a peer in a blockchain network. The peer participates in
 
 ### **1. GOSSIP**
 
-- Sends a JSON message to announce the peer:
+- Announces the peer with the following message:
 
   ```json
   {
@@ -127,7 +119,7 @@ This project implements a peer in a blockchain network. The peer participates in
   }
   ```
 
-- Replies with:
+- Reply:
 
   ```json
   {
@@ -208,7 +200,7 @@ This project implements a peer in a blockchain network. The peer participates in
 Start the peer node:
 
 ```bash
-python test.py 
+python main.py
 ```
 
 ### **Running the Miner**
@@ -216,8 +208,33 @@ python test.py
 Connect a miner to the peer:
 
 ```bash
-python miner.py --peer_host PEER_HOST --peer_port 8786 --processes NUM_PROCESS
+python miner.py --peer_host PEER_HOST --peer_port 8785
 ```
+
+### **Changing Parameters**
+
+Modify protocol parameters using the `--modify-params` command-line argument. This allows you to adjust the blockchain node’s behavior.
+
+#### **Example Usage**
+
+```bash
+python main.py --modify-params
+```
+
+#### **Adjustable Parameters**
+
+- **NAME**: Node name
+- **MAX_PEERS**: Maximum number of peers to track
+- **CLEAN_UP_INTERVAL**: Interval (seconds) to clean up peers
+- **KEEP_ALIVE_INTERVAL**: Interval (seconds) for keep-alive messages
+- **DIFFICULTY**: Block difficulty level
+- **WELL_KNOWN_PEERS**: List of well-known peers
+- **CHUNK_SIZE**: Block chunk size to receive from peers
+- **RETRY_LIMIT**: Retry attempts before giving up
+- **CONSENSUS_INTERVAL**: Seconds to wait before running consensus
+- **TCPPort**: Port for miners
+
+Follow the prompts to update parameter values.
 
 ---
 
@@ -225,14 +242,13 @@ python miner.py --peer_host PEER_HOST --peer_port 8786 --processes NUM_PROCESS
 
 ### **Consensus Code**
 
-- **File**: `test.py`
+- **File**: `protocol.py`
 - **Description**:
-  - The `test_consensus` method collects chain statistics, validates the chain, and updates the node to the longest valid chain.
+  - `init_consensus`: Initializes the consensus module.
+  - `announce_block`: Announces newly mined blocks to peers.
 
 ### **Peer Cleanup**
 
 - **File**: `gossip.py`
 - **Description**:
-  - The `clean_up` method removes peers that have been inactive for over a minute.
-
-the assignment was rushed at last minute please go easy on me
+  - `clean_up`: Removes peers inactive for over a minute.
