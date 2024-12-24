@@ -187,7 +187,7 @@ This project implements a peer in a blockchain network that participates through
     "nonce": "67890",
     "messages": ["new message"],
     "hash": "block-hash",
-    "timestamp": 1699293750
+    "timestamp": 1699293759
   }
   ```
 
