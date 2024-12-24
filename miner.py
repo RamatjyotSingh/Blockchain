@@ -101,7 +101,9 @@ if __name__ == "__main__":
 
                         print(f"Block mined: {block}")
                         print(f"Block sent to {args.peer_host}:{args.peer_port}")
-
+            except json.JSONDecodeError:
+                print("Error: Invalid data received")
+                continue
             except Exception as e:
                 print(f"Error: {e}")
                 traceback.print_exc()

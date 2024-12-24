@@ -17,7 +17,7 @@ class MinerMaster:
     
     def feed_miners(self,data):
         for miner in self.miners:
-            miner.send(json.dumps(data).encode())
+            miner.sendall(json.dumps(data).encode())
 
     def transport_blocks(self,peers):
         readable, _, exceptional = select.select(self.miners + self.sock, [], self.miners + self.sock, 0)
