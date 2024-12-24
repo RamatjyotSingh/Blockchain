@@ -13,6 +13,10 @@ class RequestHandler:
         
 
     def handle(self):
+        '''
+        This function handles incoming requests from peers.
+        
+        '''
         try:
             req,peer = self.sock.recvfrom(4096)
             if not req.strip():

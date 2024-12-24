@@ -1,16 +1,8 @@
 import json
 import socket
-import logging
 from icecream import ic
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,  # Set the logging level to INFO
-    format='%(asctime)s - %(levelname)s - %(message)s',  # Define the log message format
-    handlers=[
-        logging.FileHandler("app.log"),  # Log to a file named app.log
-        logging.StreamHandler()           # Also log to the console
-    ]
-)
+
 
 class Stats:
     
@@ -67,11 +59,11 @@ class Stats:
 
            
             except (TimeoutError, socket.timeout):
-                logging.error("Socket timed out, no more data received.")
+                print("Socket timed out, no more data received.")
                 break
 
             except Exception  :
-                logging.error('breaking out from loop')
+                print('breaking out from loop')
                 break
 
            
@@ -111,8 +103,8 @@ class Stats:
                 else:
                     occurance[hash_value] = (1, height, [peer])
             except Exception as e:
-                logging.error(f"Invalid stat: {stat}")
-                logging.error(f"Error: {e}")
+                print(f"Invalid stat: {stat}")
+                print(f"Error: {e}")
                 
                 # Handle the invalid stat appropriately
     
@@ -146,7 +138,7 @@ class Stats:
             if isinstance(height, int):
                 priority_peer_groups[height] = peer_list
             else:
-                logging.error(f"Invalid height type: {height} (Type: {type(height)})")
+                print(f"Invalid height type: {height} (Type: {type(height)})")
                 # Handle the invalid height appropriately
     
         return priority_peer_groups

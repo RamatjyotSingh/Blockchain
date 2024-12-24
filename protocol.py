@@ -120,7 +120,7 @@ class Protocol:
             peers (list): A list of peers to announce the block to.
         """
         self.announce = Announce(self.socket, block, peers)
-        self.blockchain.add_block_from_reply(block)
+        self.blockchain.add_block_from_reply(block) # Add the block to the blockchain
     
 
     def init_consensus(self,MyPeer):

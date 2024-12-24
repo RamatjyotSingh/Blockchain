@@ -8,18 +8,9 @@ from blockchain import Blockchain
 from block import Block
 from get_block import GetBlock
 import socket
-import logging
 from icecream import ic
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,  # Set the logging level to INFO
-    format='%(asctime)s - %(levelname)s - %(message)s',  # Define the log message format
-    handlers=[
-        logging.FileHandler("app.log"),  # Log to a file named app.log
-        logging.StreamHandler()           # Also log to the console
-    ]
-)
+
 
 
 BLOCKCHAIN = None
